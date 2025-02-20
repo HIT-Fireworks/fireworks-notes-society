@@ -49,9 +49,9 @@
   --vp-c-default-3: var(--vp-c-gray-3);
   --vp-c-default-soft: var(--vp-c-gray-soft);
 
-  --vp-c-brand-1: #FF6A57;
-  --vp-c-brand-2: #FF6A57;
-  --vp-c-brand-3: #FF6A57;
+  --vp-c-brand-1: #ff6a57;
+  --vp-c-brand-2: #ff6a57;
+  --vp-c-brand-3: #ff6a57;
   --vp-c-brand-soft: var(--vp-c-indigo-soft);
 
   --vp-c-tip-1: var(--vp-c-brand-1);
@@ -94,15 +94,14 @@
   --vp-home-hero-name-color: transparent;
   --vp-home-hero-name-background: -webkit-linear-gradient(
     120deg,
-    #2C5280 , 
-    #FF6A57 90%
-    
+    #2c5280,
+    #ff6a57 90%
   );
 
   --vp-home-hero-image-background-image: linear-gradient(
     -45deg,
-    #2C5280 50%, 
-    #FF6A57 50%
+    #2c5280 50%,
+    #ff6a57 50%
   );
   --vp-home-hero-image-filter: blur(44px);
 }
@@ -137,4 +136,3 @@
 .DocSearch {
   --docsearch-primary-color: var(--vp-c-brand-1) !important;
 }
-

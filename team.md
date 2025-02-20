@@ -4,6 +4,7 @@ hero:
   name: 团队成员
   tagline: 薪火笔记社
 ---
+
 <script setup>
 import {
   VPTeamPage,
@@ -40,6 +41,6 @@ const members = [
 ]
 </script>
 
-  <VPTeamMembers
+<VPTeamMembers
     :members="members"
   />
