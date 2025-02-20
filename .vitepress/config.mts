@@ -24,7 +24,7 @@ export default defineConfig({
     ],
 
     socialLinks: [
-      { icon: 'github', link: 'https://github.com/vuejs/vitepress' }
+      { icon: 'github', link: 'https://github.com/xudeyu444/fireworks-notes-society' }
     ],
     logo: '/logo.png'
   }
