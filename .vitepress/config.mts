@@ -4,8 +4,12 @@ import { defineConfig } from 'vitepress'
 export default defineConfig({
   title: "薪火笔记社",
   description: "用一门笔记改变一门课，期末考研竞赛科研社团都涉及的超好用HIT笔记网站！",
+    head: [
+      ['link', { rel: 'icon', href: '/logo.png' }]
+    ],
   themeConfig: {
     // https://vitepress.dev/reference/default-theme-config
+
     nav: [
       { text: '主页', link: '/' },
       { text: '笔记', link: '/markdown-examples' },
