@@ -1,3 +1,4 @@
+import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "vitepress";
 
 // https://vitepress.dev/reference/site-config
@@ -6,6 +7,9 @@ export default defineConfig({
   description:
     "用一门笔记改变一门课，期末考研竞赛科研社团都涉及的超好用HIT笔记网站！",
   head: [["link", { rel: "icon", href: "/logo.png" }]],
+  vite: {
+    plugins: [tailwindcss()],
+  },
   themeConfig: {
     // https://vitepress.dev/reference/default-theme-config
 

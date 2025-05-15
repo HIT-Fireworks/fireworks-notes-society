@@ -18,5 +18,12 @@
     "prettier": "3.5.3",
     "vitepress": "^1.6.3",
     "vue": "^3.5.14"
+  },
+  "dependencies": {
+    "@primeuix/themes": "^1.1.1",
+    "@tailwindcss/vite": "^4.1.6",
+    "primeicons": "^7.0.0",
+    "primevue": "^4.3.4",
+    "tailwindcss": "^4.1.6"
   }
 }
