@@ -45,12 +45,36 @@ export default defineConfig({
       },
     ]),
 
+    footer: {
+      message: "Released under the MPL-2.0 license",
+      copyright: "Copyright © 2024-present, 薪火笔记社. CC BY-NC-SA 4.0",
+    },
+
     socialLinks: [
       {
         icon: "github",
         link: "https://github.com/HIT-Fireworks/fireworks-notes-society",
       },
     ],
+
     logo: "/logo.png",
+
+    editLink: {
+      pattern:
+        "https://github.com/HIT-Fireworks/fireworks-notes-society/edit/main/:path",
+      text: "在 GitHub 上编辑此页面",
+    },
+
+    outline: "deep",
+
+    docFooter: {
+      prev: "上一篇",
+      next: "下一篇",
+    },
+
+    externalLinkIcon: true,
   },
+
+  lastUpdated: true,
+  cleanUrls: true,
 });
