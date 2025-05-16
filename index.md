@@ -10,10 +10,10 @@ hero:
   actions:
     - theme: brand
       text: 现在开始
-      link: /markdown-examples
+      link: /lessons
     - theme: alt
       text: 在 Github 上查看
-      link: /api-examples
+      link: https://github.com/HIT-Fireworks/fireworks-notes-society
   image:
     src: /logo.png
 

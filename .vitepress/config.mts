@@ -33,7 +33,7 @@ export default defineConfig({
     socialLinks: [
       {
         icon: "github",
-        link: "https://github.com/xudeyu444/fireworks-notes-society",
+        link: "https://github.com/HIT-Fireworks/fireworks-notes-society",
       },
     ],
     logo: "/logo.png",
