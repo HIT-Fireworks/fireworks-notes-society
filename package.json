@@ -17,6 +17,7 @@
   "devDependencies": {
     "prettier": "3.5.3",
     "vitepress": "^1.6.3",
+    "vitepress-sidebar": "^1.31.1",
     "vue": "^3.5.14"
   },
   "dependencies": {

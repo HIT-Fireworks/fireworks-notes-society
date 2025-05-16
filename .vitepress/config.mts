@@ -1,5 +1,6 @@
 import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "vitepress";
+import { generateSidebar } from "vitepress-sidebar";
 
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
@@ -15,19 +16,19 @@ export default defineConfig({
 
     nav: [
       { text: "主页", link: "/" },
-      { text: "笔记", link: "/markdown-examples" },
+      { text: "笔记", link: "/lessons", activeMatch: "/lessons" },
       { text: "项目成员", link: "/team.md" },
     ],
 
-    sidebar: [
+    sidebar: generateSidebar([
       {
-        text: "笔记",
-        items: [
-          { text: "Markdown Examples", link: "/markdown-examples" },
-          { text: "Runtime API Examples", link: "/api-examples" },
-        ],
+        resolvePath: "/",
+        useFolderLinkFromIndexFile: true,
+        useFolderTitleFromIndexFile: true,
+        useTitleFromFileHeading: true,
+        excludePattern: ["parts", "team.md"],
       },
-    ],
+    ]),
 
     socialLinks: [
       {
