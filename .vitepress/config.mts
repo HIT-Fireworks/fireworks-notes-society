@@ -13,6 +13,21 @@ export default defineConfig({
   },
   themeConfig: {
     // https://vitepress.dev/reference/default-theme-config
+    search: {
+      provider: "local",
+      options: {
+        miniSearch: {
+          options: {
+            tokenize: (text: string, fieldName?: string | undefined) =>
+              Array.from(
+                new Intl.Segmenter("cn", { granularity: "word" }).segment(text),
+              )
+                .filter((segment) => segment.isWordLike)
+                .map((segment) => segment.segment),
+          },
+        },
+      },
+    },
 
     nav: [
       { text: "主页", link: "/" },
