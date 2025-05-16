@@ -43,6 +43,7 @@
  *   in custom container, badges, etc.
  * -------------------------------------------------------------------------- */
 @import 'primeicons/primeicons.css';
+@import "tailwindcss";
 
 :root {
   --vp-c-default-1: var(--vp-c-gray-1);
