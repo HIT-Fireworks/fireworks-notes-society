@@ -206,18 +206,30 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="flex flex-col items-end">
+  <div class="flex flex-col items-end w-full" ref="alist">
     <FloatLabel variant="on">
       <InputText id="search_alist" v-model="filters['name']" />
       <label for="search_alist">搜索</label>
     </FloatLabel>
-    <Fieldset :legend="title" class="w-full alist-container">
+    <Fieldset
+      :legend="title"
+      class="w-full alist-container"
+      :pt="{
+        contentContainer: {
+          style: {
+            width: '100%',
+            contain: 'inline-size',
+          },
+        },
+      }"
+    >
       <TreeTable
         v-model:expandedKeys="expandedKeys"
         v-model:selectionKeys="selectedKeys"
         :value="filteredData"
         selectionMode="checkbox"
         lazy
+        scrollable
         @nodeExpand="onExpand"
         @sort="onSort"
       >
@@ -320,7 +332,7 @@ onMounted(async () => {
   margin-left: 1.125rem;
   margin-bottom: -19.5px;
   position: relative;
-  z-index: 1;
+  z-index: 2;
   background: linear-gradient(
     to bottom,
     var(--p-fieldset-legend-background) 51%,
