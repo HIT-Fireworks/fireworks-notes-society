@@ -8,6 +8,9 @@ import Button from "primevue/button";
 import Skeleton from "primevue/skeleton";
 import InputText from "primevue/inputtext";
 import FloatLabel from "primevue/floatlabel";
+import { data as defaultData } from "./alist.data.mjs";
+import { fetchList } from "./alist.api.mjs";
+import type { DataItem } from "./alist.api.mjs";
 
 const {
   path = "/",
@@ -19,32 +22,48 @@ const {
   base?: string;
 }>();
 
-interface DataItem {
-  name: string;
-  is_dir: boolean;
-  modified: Date;
-  size: number;
-  path: string;
-}
-
 interface TreeDataNode extends TreeNode {
   data: DataItem;
   children?: TreeDataNode[];
 }
 
-const data = ref<TreeDataNode[]>([
-  {
-    key: "loading",
-    data: {
-      name: "",
-      is_dir: true,
-      modified: new Date(),
-      size: 0,
-      path: "",
-    },
-    loading: true,
-  },
-]);
+const data = ref<TreeDataNode[]>(
+  path === "/"
+    ? defaultData.map((item: DataItem, index: number) => {
+        return {
+          key: `${index}`,
+          data: item,
+          children: item.is_dir
+            ? [
+                {
+                  key: `${index}-loading`,
+                  data: {
+                    name: "",
+                    is_dir: true,
+                    modified: new Date(),
+                    size: 0,
+                    path: "",
+                  },
+                  loading: true,
+                },
+              ]
+            : undefined,
+        };
+      })
+    : [
+        {
+          key: "loading",
+          data: {
+            name: "",
+            is_dir: true,
+            modified: new Date(),
+            size: 0,
+            path: "",
+          },
+          loading: true,
+        },
+      ],
+);
 
 const filters = ref<Record<string, string>>({});
 
@@ -71,32 +90,6 @@ function normalizeSize(size: number): string {
   } else {
     return (size / (1024 * 1024 * 1024)).toFixed(2) + " GB";
   }
-}
-
-async function fetchList(path: string = "/") {
-  const res = await fetch(`${base}/api/fs/list`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: "",
-    },
-    body: JSON.stringify({
-      path: `/Fireworks/${path}`,
-    }),
-  });
-  const data = await res.json();
-  if (data.code !== 200) {
-    throw "Error fetching data:" + data;
-  }
-  return data.data.content.map((item: any) => {
-    return {
-      name: item.name,
-      is_dir: item.is_dir,
-      modified: new Date(item.modified),
-      size: item.size,
-      path: `${path}/${item.name}`,
-    };
-  });
 }
 
 async function download(node: TreeDataNode) {
@@ -181,27 +174,29 @@ const onSort = (event) => {
 };
 
 onMounted(async () => {
-  data.value = (await fetchList(path)).map((item: DataItem, index: number) => {
-    return {
-      key: `${index}`,
-      data: item,
-      children: item.is_dir
-        ? [
-            {
-              key: `${index}-loading`,
-              data: {
-                name: "",
-                is_dir: true,
-                modified: new Date(),
-                size: 0,
-                path: "",
+  data.value = (await fetchList(path, base)).map(
+    (item: DataItem, index: number) => {
+      return {
+        key: `${index}`,
+        data: item,
+        children: item.is_dir
+          ? [
+              {
+                key: `${index}-loading`,
+                data: {
+                  name: "",
+                  is_dir: true,
+                  modified: new Date(),
+                  size: 0,
+                  path: "",
+                },
+                loading: true,
               },
-              loading: true,
-            },
-          ]
-        : undefined,
-    };
-  });
+            ]
+          : undefined,
+      };
+    },
+  );
 });
 </script>
 
