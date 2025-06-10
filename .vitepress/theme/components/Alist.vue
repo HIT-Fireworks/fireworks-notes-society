@@ -134,7 +134,7 @@ async function groupDownload() {
 
 const onExpand = async (node) => {
   if (node.children[0].loading) {
-    const children = await fetchList(node.data.path);
+    const children = await fetchList(node.data.path, base);
     node.children = children.map((item: DataItem, index: number) => {
       return {
         key: `${node.key}-${index}`,
