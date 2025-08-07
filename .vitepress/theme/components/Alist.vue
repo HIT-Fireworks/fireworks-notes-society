@@ -15,7 +15,7 @@ import type { DataItem } from "./alist.api.mjs";
 const {
   path = "/",
   title = "吉の小网盘",
-  base = "https://alist.jwyihao.top",
+  base = "https://olist.jwyihao.top",
 } = defineProps<{
   path?: string;
   title?: string;
