@@ -8,7 +8,7 @@ export interface DataItem {
 
 export async function fetchList(
   path: string = "/",
-  base: string = "https://alist.jwyihao.top",
+  base: string = "https://olist.jwyihao.top",
 ): Promise<DataItem[]> {
   const res = await fetch(`${base}/api/fs/list`, {
     method: "POST",
