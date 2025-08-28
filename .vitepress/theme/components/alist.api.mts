@@ -8,16 +8,17 @@ export interface DataItem {
 
 export async function fetchList(
   path: string = "/",
-  base: string = "https://olist.jwyihao.top",
+  host: string = "https://olist.jwyihao.top",
+  base: string = "Fireworks",
 ): Promise<DataItem[]> {
-  const res = await fetch(`${base}/api/fs/list`, {
+  const res = await fetch(`${host}/api/fs/list`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: "",
     },
     body: JSON.stringify({
-      path: `/Fireworks/${path}`,
+      path: `/${base}/${path}`,
     }),
   });
   const data = await res.json();

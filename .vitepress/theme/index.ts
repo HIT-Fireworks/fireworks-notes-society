@@ -5,7 +5,8 @@ import DefaultTheme from "vitepress/theme";
 import "./style.css";
 import PrimeVue from "primevue/config";
 import Aura from "@primeuix/themes/aura";
-import Alist from "./components/Alist.vue";
+import OList from "./components/OList.vue";
+import OListItem from "./components/OListItem.vue";
 import { definePreset } from "@primeuix/themes";
 import { primitive } from "@primeuix/themes/aura/base";
 
@@ -43,6 +44,7 @@ export default {
         },
       },
     });
-    app.component("Alist", Alist);
+    app.component("OList", OList);
+    app.component("OListItem", OListItem);
   },
 } satisfies Theme;

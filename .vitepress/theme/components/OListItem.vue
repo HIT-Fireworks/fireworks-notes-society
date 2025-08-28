@@ -15,10 +15,12 @@ import type { DataItem } from "./alist.api.mjs";
 const {
   path = "/",
   title = "吉の小网盘",
-  base = "https://olist.jwyihao.top",
+  host = "https://olist.jwyihao.top",
+  base = "Fireworks",
 } = defineProps<{
   path?: string;
   title?: string;
+  host?: string;
   base?: string;
 }>();
 
@@ -101,7 +103,7 @@ async function download(node: TreeDataNode) {
       await download(child);
     }
   } else {
-    const url = `${base}/d/Fireworks/${node.data.path}`;
+    const url = `${host}/d/${base}/${node.data.path}`;
     const a = document.createElement("a");
     a.href = url;
     a.download = node.data.name;
@@ -134,7 +136,7 @@ async function groupDownload() {
 
 const onExpand = async (node) => {
   if (node.children[0].loading) {
-    const children = await fetchList(node.data.path, base);
+    const children = await fetchList(node.data.path, host);
     node.children = children.map((item: DataItem, index: number) => {
       return {
         key: `${node.key}-${index}`,
@@ -174,7 +176,7 @@ const onSort = (event) => {
 };
 
 onMounted(async () => {
-  data.value = (await fetchList(path, base)).map(
+  data.value = (await fetchList(path, host)).map(
     (item: DataItem, index: number) => {
       return {
         key: `${index}`,
