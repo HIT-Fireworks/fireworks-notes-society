@@ -13,18 +13,18 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "packageManager": "pnpm@9.14.2+sha512.6e2baf77d06b9362294152c851c4f278ede37ab1eba3a55fda317a4a17b209f4dbb973fb250a77abc463a341fcb1f17f17cfa24091c4eb319cda0d9b84278387",
+  "packageManager": "pnpm@10.15.0+sha512.486ebc259d3e999a4e8691ce03b5cac4a71cbeca39372a9b762cb500cfdf0873e2cb16abe3d951b1ee2cf012503f027b98b6584e4df22524e0c7450d9ec7aa7b",
   "devDependencies": {
     "prettier": "3.5.3",
-    "vitepress": "^1.6.3",
-    "vitepress-sidebar": "^1.31.1",
-    "vue": "^3.5.14"
+    "vitepress": "^1.6.4",
+    "vitepress-sidebar": "^1.33.0",
+    "vue": "^3.5.20"
   },
   "dependencies": {
-    "@primeuix/themes": "^1.1.1",
-    "@tailwindcss/vite": "^4.1.6",
+    "@primeuix/themes": "^1.2.3",
+    "@tailwindcss/vite": "^4.1.12",
     "primeicons": "^7.0.0",
-    "primevue": "^4.3.4",
-    "tailwindcss": "^4.1.6"
+    "primevue": "^4.3.7",
+    "tailwindcss": "^4.1.12"
   }
 }
