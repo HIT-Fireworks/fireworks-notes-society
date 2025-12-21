@@ -179,128 +179,163 @@ function getImageDimensions(buffer) {
 }
 
 /**
- * 从 mytoday.hit.edu.cn 收集图片验证数据
+ * 从 zb.hit.edu.cn/help 收集图片验证数据
+ *
+ * 策略：
+ * 1. 获取第一页，解析总页数
+ * 2. 从除最后一页外随机选择5页
+ * 3. 每页随机选择4篇文章（共20篇）
+ * 4. 收集这20篇文章中的所有图片
+ * 5. 随机选择20张图片作为校验链接
  */
 async function collectImageVerificationData() {
-  console.log("=== 收集图片验证数据 ===\n");
+  console.log("=== 收集图片验证数据 (zb.hit.edu.cn/help) ===\n");
 
-  const images = [];
-  let page = 0;
+  const ZB_BASE = "https://zb.hit.edu.cn";
 
-  while (images.length < TARGET_IMAGE_COUNT) {
-    // 获取文章列表
-    const listUrl =
-      page === 0
-        ? `${MYTODAY_BASE}/category/11`
-        : `${MYTODAY_BASE}/category/11?page=${page}`;
+  // 1. 获取第一页，解析总页数
+  console.log("获取帮助中心第一页...");
+  const firstPageHtml = await fetchText(`${ZB_BASE}/help?page=1`);
 
-    console.log(`获取文章列表: ${listUrl}`);
+  const pageMatches = firstPageHtml.matchAll(/help\?page=(\d+)/g);
+  const pageNumbers = [...new Set([...pageMatches].map((m) => parseInt(m[1])))];
+  const totalPages = Math.max(...pageNumbers, 1);
+  console.log(`共 ${totalPages} 页`);
 
-    let listHtml;
-    try {
-      listHtml = await fetchText(listUrl);
-    } catch (e) {
-      console.log(`无法获取列表: ${e.message}`);
-      break;
-    }
-
-    // 提取文章链接
-    const articleMatches = listHtml.matchAll(/<a\s+href="(\/article\/[^"]+)"/g);
-    const articlePaths = [...new Set([...articleMatches].map((m) => m[1]))];
-
-    if (articlePaths.length === 0) {
-      console.log("没有更多文章");
-      break;
-    }
-
-    console.log(`找到 ${articlePaths.length} 篇文章`);
-
-    for (const articlePath of articlePaths) {
-      if (images.length >= TARGET_IMAGE_COUNT) break;
-
-      const articleUrl = `${MYTODAY_BASE}${articlePath}`;
-      console.log(`\n检查文章: ${articlePath}`);
-
-      // 获取文章内容
-      let articleHtml;
-      try {
-        articleHtml = await fetchText(articleUrl);
-      } catch (e) {
-        console.log(`  跳过 (${e.message})`);
-        continue;
-      }
-
-      // 检查是否重定向到登录页
-      if (
-        articleHtml.includes("ids.hit.edu.cn") ||
-        articleHtml.includes("统一身份认证")
-      ) {
-        console.log("  跳过 (需要登录)");
-        continue;
-      }
-
-      // 提取文章中的图片
-      const imgMatches = articleHtml.matchAll(/<img[^>]+src="([^"]+)"/g);
-      const imgUrls = [...imgMatches]
-        .map((m) => m[1])
-        .filter((src) => src.includes("/sites/") && !src.includes("logo"));
-
-      if (imgUrls.length === 0) {
-        console.log("  没有找到图片");
-        continue;
-      }
-
-      console.log(`  找到 ${imgUrls.length} 张图片`);
-
-      for (const imgSrc of imgUrls) {
-        if (images.length >= TARGET_IMAGE_COUNT) break;
-
-        // 构建完整URL
-        const imgUrl = imgSrc.startsWith("http")
-          ? imgSrc
-          : `${MYTODAY_BASE}${imgSrc}`;
-
-        try {
-          console.log(`  获取图片: ${imgUrl.substring(0, 80)}...`);
-          const buffer = await fetchBuffer(imgUrl);
-
-          // 计算MD5
-          const md5 = createHash("md5").update(buffer).digest("hex");
-
-          // 获取尺寸
-          const dims = getImageDimensions(buffer);
-          if (!dims) {
-            console.log(`    跳过 (无法解析尺寸)`);
-            continue;
-          }
-
-          // 计算最终密码: MD5(realMd5 + 尺寸)
-          const dimsStr = `${dims.width}x${dims.height}`;
-          const password = createHash("md5")
-            .update(md5 + dimsStr)
-            .digest("hex");
-
-          images.push({
-            url: imgUrl,
-            md5: md5,
-            password: password, // 存储计算好的密码，用于验证
-          });
-
-          console.log(
-            `    ✓ ${dims.width}x${dims.height}, MD5: ${md5.substring(0, 8)}...`,
-          );
-          console.log(`    密码: ${password}`);
-        } catch (e) {
-          console.log(`    跳过 (${e.message})`);
-        }
-      }
-    }
-
-    page++;
-    if (page > 10) break; // 最多检查10页
+  // 2. 从除最后一页外随机选择5页
+  const availablePages = [];
+  for (let i = 1; i < totalPages; i++) {
+    // 排除最后一页
+    availablePages.push(i);
   }
 
-  console.log(`\n收集到 ${images.length} 张图片`);
+  // 随机打乱并取前5页
+  const shuffledPages = availablePages.sort(() => Math.random() - 0.5);
+  const selectedPages = shuffledPages.slice(
+    0,
+    Math.min(5, shuffledPages.length),
+  );
+  console.log(`随机选择页面: ${selectedPages.join(", ")}`);
+
+  // 3. 从每页随机选择4篇文章
+  const selectedArticles = [];
+
+  for (const pageNum of selectedPages) {
+    console.log(`\n获取第 ${pageNum} 页...`);
+
+    let pageHtml;
+    if (pageNum === 1) {
+      pageHtml = firstPageHtml;
+    } else {
+      pageHtml = await fetchText(`${ZB_BASE}/help?page=${pageNum}`);
+    }
+
+    // 提取文章链接 /help/detail/xxx
+    const articleMatches = pageHtml.matchAll(
+      /<a\s+href="(\/help\/detail\/\d+)"/g,
+    );
+    const articlePaths = [...new Set([...articleMatches].map((m) => m[1]))];
+
+    console.log(`  找到 ${articlePaths.length} 篇文章`);
+
+    // 随机选择4篇
+    const shuffledArticles = articlePaths.sort(() => Math.random() - 0.5);
+    const pickedArticles = shuffledArticles.slice(
+      0,
+      Math.min(4, shuffledArticles.length),
+    );
+
+    for (const path of pickedArticles) {
+      selectedArticles.push(`${ZB_BASE}${path}`);
+    }
+    console.log(
+      `  选择 ${pickedArticles.length} 篇: ${pickedArticles.join(", ")}`,
+    );
+  }
+
+  console.log(`\n共选择 ${selectedArticles.length} 篇文章`);
+
+  // 4. 收集所有文章中的图片
+  const allImageUrls = [];
+
+  for (const articleUrl of selectedArticles) {
+    console.log(`\n获取文章: ${articleUrl}`);
+
+    let articleHtml;
+    try {
+      articleHtml = await fetchText(articleUrl);
+    } catch (e) {
+      console.log(`  跳过 (${e.message})`);
+      continue;
+    }
+
+    // 提取图片 - 筛选 /upload/hit/image/ 或 /images/help/ 路径
+    const imgMatches = articleHtml.matchAll(
+      /<img[^>]+src="([^"]+(?:\/upload\/hit\/image\/|\/images\/help\/)[^"]+)"/g,
+    );
+    const imgUrls = [...imgMatches].map((m) => m[1]);
+
+    // 转为完整URL
+    for (const src of imgUrls) {
+      const fullUrl = src.startsWith("http") ? src : `${ZB_BASE}${src}`;
+      if (!allImageUrls.includes(fullUrl)) {
+        allImageUrls.push(fullUrl);
+      }
+    }
+
+    console.log(`  找到 ${imgUrls.length} 张图片`);
+  }
+
+  console.log(`\n共收集 ${allImageUrls.length} 张图片`);
+
+  // 5. 随机选择20张图片
+  const shuffledImages = allImageUrls.sort(() => Math.random() - 0.5);
+  const selectedImageUrls = shuffledImages.slice(
+    0,
+    Math.min(TARGET_IMAGE_COUNT, shuffledImages.length),
+  );
+
+  console.log(`随机选择 ${selectedImageUrls.length} 张图片进行处理\n`);
+
+  // 6. 处理选中的图片，计算MD5和密码
+  const images = [];
+
+  for (const imgUrl of selectedImageUrls) {
+    try {
+      console.log(`获取图片: ${imgUrl.substring(0, 70)}...`);
+      const buffer = await fetchBuffer(imgUrl);
+
+      // 计算MD5
+      const md5 = createHash("md5").update(buffer).digest("hex");
+
+      // 获取尺寸
+      const dims = getImageDimensions(buffer);
+      if (!dims) {
+        console.log(`  跳过 (无法解析尺寸)`);
+        continue;
+      }
+
+      // 计算密码: MD5(realMd5 + 尺寸)
+      const dimsStr = `${dims.width}x${dims.height}`;
+      const password = createHash("md5")
+        .update(md5 + dimsStr)
+        .digest("hex");
+
+      images.push({
+        url: imgUrl,
+        md5: md5,
+        password: password,
+      });
+
+      console.log(
+        `  ✓ ${dimsStr}, MD5: ${md5.substring(0, 8)}..., 密码: ${password.substring(0, 8)}...`,
+      );
+    } catch (e) {
+      console.log(`  跳过 (${e.message})`);
+    }
+  }
+
+  console.log(`\n成功处理 ${images.length} 张图片`);
   return images;
 }
 
