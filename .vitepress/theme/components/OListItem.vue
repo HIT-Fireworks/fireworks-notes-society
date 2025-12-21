@@ -613,7 +613,21 @@ onMounted(async () => {
 
 <template>
   <div class="flex flex-col items-end w-full" ref="alist">
-    <Toast />
+    <Toast
+      :breakpoints="{
+        '575px': { width: 'calc(100% - 2rem)', right: '1rem', left: '1rem' },
+      }"
+      :dt="{
+        summaryFontSize: '0.875rem',
+        detailFontSize: '0.8rem',
+        iconSize: '1.25rem',
+        contentPadding: '0.75rem',
+        contentGap: '0.5rem',
+      }"
+      :pt="{
+        closeButton: { style: { display: 'none' } },
+      }"
+    />
     <FloatLabel variant="on">
       <InputText id="search_alist" v-model="filters['name']" />
       <label for="search_alist">搜索</label>
@@ -626,6 +640,7 @@ onMounted(async () => {
           style: {
             width: '100%',
             contain: 'inline-size',
+            overflow: 'auto',
           },
         },
       }"
@@ -685,7 +700,12 @@ onMounted(async () => {
             <i v-else class="pi pi-file" />
           </template>
         </Column>
-        <Column field="name" header="文件名" sortable>
+        <Column
+          field="name"
+          header="文件名"
+          sortable
+          :style="{ minWidth: '120px' }"
+        >
           <template #body="{ node }">
             <Skeleton v-if="node.loading" />
             <template v-else>
@@ -693,7 +713,12 @@ onMounted(async () => {
             </template>
           </template>
         </Column>
-        <Column field="modified" header="修改时间" sortable>
+        <Column
+          field="modified"
+          header="修改时间"
+          sortable
+          :style="{ minWidth: '140px' }"
+        >
           <template #body="{ node }">
             <Skeleton v-if="node.loading" />
             <template v-else>
@@ -701,7 +726,12 @@ onMounted(async () => {
             </template>
           </template>
         </Column>
-        <Column field="size" header="文件大小" sortable>
+        <Column
+          field="size"
+          header="文件大小"
+          sortable
+          :style="{ minWidth: '80px' }"
+        >
           <template #body="{ node }">
             <Skeleton v-if="node.loading" />
             <template v-else>
