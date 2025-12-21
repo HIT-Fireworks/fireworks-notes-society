@@ -8,7 +8,7 @@ export interface DataItem {
 
 export async function fetchList(
   path: string = "/",
-  host: string = "https://olist.jwyihao.top",
+  host: string = "https://olist-eo.jwyihao.top",
   base: string = "Fireworks",
 ): Promise<DataItem[]> {
   const res = await fetch(`${host}/api/fs/list`, {
@@ -31,7 +31,7 @@ export async function fetchList(
       is_dir: item.is_dir,
       modified: new Date(item.modified),
       size: item.size,
-      path: `${path}/${item.name}`,
+      path: `${path}/${item.name}`.replace(/\/+/g, "/"),
     };
   });
 }

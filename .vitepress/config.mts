@@ -41,7 +41,7 @@ export default defineConfig({
         useFolderLinkFromIndexFile: true,
         useFolderTitleFromIndexFile: true,
         useTitleFromFileHeading: true,
-        excludePattern: ["parts", "team.md"],
+        excludePattern: ["parts", "team.md", "README.md", "CONTRIBUTING.md"],
       },
     ]),
 

@@ -2,12 +2,15 @@
 import { computed, nextTick, onMounted, ref } from "vue";
 import { TreeNode } from "primevue/treenode";
 import TreeTable from "primevue/treetable";
+import type { TreeTableSortEvent } from "primevue/treetable";
 import Column from "primevue/column";
 import Fieldset from "primevue/fieldset";
 import Button from "primevue/button";
 import Skeleton from "primevue/skeleton";
 import InputText from "primevue/inputtext";
 import FloatLabel from "primevue/floatlabel";
+import Dialog from "primevue/dialog";
+import Tag from "primevue/tag";
 import { data as defaultData } from "./alist.data.mjs";
 import { fetchList } from "./alist.api.mjs";
 import type { DataItem } from "./alist.api.mjs";
@@ -15,14 +18,54 @@ import type { DataItem } from "./alist.api.mjs";
 const {
   path = "/",
   title = "吉の小网盘",
-  host = "https://olist.jwyihao.top",
-  base = "Fireworks",
+  host = "https://olist-eo.jwyihao.top",
 } = defineProps<{
   path?: string;
   title?: string;
   host?: string;
-  base?: string;
 }>();
+
+// 下载源配置
+interface DownloadSource {
+  name: string;
+  host: string;
+  base: string;
+  recommended?: boolean;
+  description?: string;
+}
+
+const downloadSources: DownloadSource[] = [
+  {
+    name: "OneDrive 直连",
+    host: "https://olist.jwyihao.top",
+    base: "Fireworks",
+    description: "直连 OneDrive，需要比较科学的网络环境",
+  },
+  {
+    name: "EdgeOne 中转",
+    host: "https://olist-eo.jwyihao.top",
+    base: "Fireworks",
+    recommended: true,
+    description: "速度较快，但有 CDN 限速，推荐尝试",
+  },
+  {
+    name: "ESA -> EO 中转",
+    host: "https://olist-esa.jwyihao.top",
+    base: "Fireworks",
+    recommended: true,
+    description: "命中缓存时速度最快，推荐尝试",
+  },
+  {
+    name: "ESA -> EO -> VPS 中转",
+    host: "https://olist.jwyihao.top",
+    base: "Fireworks（EdgeOne）",
+    description: "未命中缓存时速度较慢",
+  },
+];
+
+// 下载弹窗状态
+const downloadDialogVisible = ref(false);
+const pendingDownloadNode = ref<TreeDataNode | null>(null);
 
 interface TreeDataNode extends TreeNode {
   data: DataItem;
@@ -78,7 +121,7 @@ const filteredData = computed(() => {
   });
 });
 
-const expandedKeys = ref({});
+const expandedKeys = ref<Record<string, boolean>>({});
 const selectedKeys =
   ref<Record<string, { checked: boolean; partialChecked: boolean }>>();
 
@@ -94,16 +137,28 @@ function normalizeSize(size: number): string {
   }
 }
 
-async function download(node: TreeDataNode) {
+// 打开下载选择对话框
+function openDownloadDialog(node: TreeDataNode) {
+  pendingDownloadNode.value = node;
+  downloadDialogVisible.value = true;
+}
+
+// 执行实际下载
+async function executeDownload(
+  node: TreeDataNode,
+  downloadHost: string,
+  downloadBase: string,
+) {
   if (node.data.is_dir) {
-    if (node.children?.[0].loading) {
+    if (node.children?.[0]?.loading) {
       await onExpand(node);
     }
     for (const child of node.children ?? []) {
-      await download(child);
+      await executeDownload(child, downloadHost, downloadBase);
     }
   } else {
-    const url = `${host}/d/${base}/${node.data.path}`;
+    const filePath = node.data.path.replace(/^\/+/, ""); // 移除开头的斜杠
+    const url = `${downloadHost}/d/${downloadBase}/${filePath}`;
     const a = document.createElement("a");
     a.href = url;
     a.download = node.data.name;
@@ -122,20 +177,29 @@ async function download(node: TreeDataNode) {
   }
 }
 
+// 使用选定源下载
+async function downloadWithSource(source: (typeof downloadSources)[0]) {
+  if (!pendingDownloadNode.value) return;
+  downloadDialogVisible.value = false;
+  await executeDownload(pendingDownloadNode.value, source.host, source.base);
+}
+
 async function groupDownload() {
   const selected = Object.entries(selectedKeys.value ?? {}).filter(
     ([, value]) => value.checked && value.partialChecked === false,
   );
-  for (const [key] of selected) {
-    const node = data.value.find((item) => item.key === key);
+  // 如果选中了文件，打开对话框让用户选择下载源
+  if (selected.length > 0) {
+    const firstKey = selected[0][0];
+    const node = data.value.find((item) => item.key === firstKey);
     if (node) {
-      await download(node);
+      openDownloadDialog(node);
     }
   }
 }
 
-const onExpand = async (node) => {
-  if (node.children[0].loading) {
+const onExpand = async (node: TreeDataNode) => {
+  if (node.children?.[0]?.loading) {
     const children = await fetchList(node.data.path, host);
     node.children = children.map((item: DataItem, index: number) => {
       return {
@@ -161,10 +225,10 @@ const onExpand = async (node) => {
   }
 };
 
-const onSort = (event) => {
+const onSort = (event: TreeTableSortEvent) => {
   data.value = data.value.sort((a, b) => {
-    const field = event.sortField;
-    const order = event.sortOrder;
+    const field = event.sortField as keyof DataItem;
+    const order = event.sortOrder ?? 1;
     if (a.data[field] < b.data[field]) {
       return -1 * order;
     } else if (a.data[field] > b.data[field]) {
@@ -309,13 +373,54 @@ onMounted(async () => {
                 aria-label="Download"
                 severity="secondary"
                 rounded
-                @click="download(node)"
+                @click="openDownloadDialog(node)"
               />
             </template>
           </template>
         </Column>
       </TreeTable>
     </Fieldset>
+
+    <!-- 下载线路选择弹窗 -->
+    <Dialog
+      v-model:visible="downloadDialogVisible"
+      modal
+      header="选择下载线路"
+      :style="{ width: '22rem' }"
+    >
+      <div class="flex flex-col gap-2">
+        <Button
+          v-for="source in downloadSources"
+          :key="source.name"
+          severity="secondary"
+          variant="outlined"
+          class="w-full flex-col items-start! gap-1! b-2!"
+          @click="downloadWithSource(source)"
+        >
+          <div class="flex items-center gap-1.5">
+            <Tag
+              v-if="source.recommended"
+              value="推荐"
+              severity="success"
+              rounded
+              :pt="{
+                root: {
+                  style: {
+                    padding: '0px 0.5rem',
+                    fontSize: '0.65rem',
+                    lineHeight: '1.25rem',
+                  },
+                },
+              }"
+            />
+            <span class="font-medium">{{ source.name }}</span>
+          </div>
+          <span v-if="source.description" class="text-xs opacity-80 text-left">
+            {{ source.description }}
+          </span>
+        </Button>
+      </div>
+    </Dialog>
   </div>
 </template>
 
