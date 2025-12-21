@@ -80,27 +80,55 @@ function promptPassword(question) {
 }
 
 /**
- * 从 today.hit.edu.cn/calendar/month 获取第一个活动的 URL
+ * 从 zb.hit.edu.cn/help 随机获取一篇帮助文章的 URL
  */
-async function getFirstEventUrl() {
-  console.log("正在获取 today.hit.edu.cn 活动预报...");
-  const res = await fetch("https://today.hit.edu.cn/calendar/month");
-  if (!res.ok) {
-    throw new Error(`无法访问 today.hit.edu.cn: ${res.status}`);
+async function getRandomHelpArticleUrl() {
+  // 1. 先获取第一页，解析总页数
+  console.log("正在获取 zb.hit.edu.cn 帮助中心 (第1页)...");
+  const firstRes = await fetch("https://zb.hit.edu.cn/help?page=1");
+  if (!firstRes.ok) {
+    throw new Error(`无法访问 zb.hit.edu.cn: ${firstRes.status}`);
   }
-  const html = await res.text();
+  const firstHtml = await firstRes.text();
 
-  // 解析 HTML 获取第一个活动链接
-  // 页面结构：<a href="/event/2025/12/01/126497">...</a>
-  const match = html.match(/<a\s+href="(\/event\/[^"]+)"/);
-  if (!match) {
-    throw new Error("无法找到活动链接");
+  // 解析分页，获取总页数
+  // 页面结构：<a href="https://zb.hit.edu.cn/help?page=24">24</a>
+  const pageMatches = firstHtml.matchAll(/help\?page=(\d+)/g);
+  const pageNumbers = [...new Set([...pageMatches].map((m) => parseInt(m[1])))];
+  const totalPages = Math.max(...pageNumbers, 1);
+  console.log(`共 ${totalPages} 页`);
+
+  // 2. 随机选择一页
+  const randomPage = Math.floor(Math.random() * totalPages) + 1;
+
+  // 如果随机到第1页，直接使用已获取的内容
+  let html = firstHtml;
+  if (randomPage !== 1) {
+    console.log(`随机选择第 ${randomPage} 页...`);
+    const res = await fetch(`https://zb.hit.edu.cn/help?page=${randomPage}`);
+    if (!res.ok) {
+      throw new Error(`无法访问第 ${randomPage} 页: ${res.status}`);
+    }
+    html = await res.text();
+  } else {
+    console.log(`随机选择第 1 页...`);
   }
 
-  const eventPath = match[1];
-  const eventUrl = `https://today.hit.edu.cn${eventPath}`;
-  console.log(`找到活动: ${eventUrl}`);
-  return eventUrl;
+  // 3. 解析文章链接并随机选择
+  const matches = html.matchAll(/<a\s+href="(\/help\/detail\/\d+)"/g);
+  const uniquePaths = [...new Set([...matches].map((m) => m[1]))];
+
+  if (uniquePaths.length === 0) {
+    throw new Error("无法找到帮助文章链接");
+  }
+
+  const randomIndex = Math.floor(Math.random() * uniquePaths.length);
+  const articlePath = uniquePaths[randomIndex];
+  const articleUrl = `https://zb.hit.edu.cn${articlePath}`;
+  console.log(
+    `随机选择文章 (${randomIndex + 1}/${uniquePaths.length}): ${articleUrl}`,
+  );
+  return articleUrl;
 }
 
 /**
@@ -193,11 +221,11 @@ async function createMeta(host, token, path, password) {
  */
 async function main() {
   try {
-    // 1. 获取第一个活动 URL
-    const eventUrl = await getFirstEventUrl();
+    // 1. 从帮助中心随机获取文章 URL
+    const articleUrl = await getRandomHelpArticleUrl();
 
     // 2. 计算 MD5
-    const md5 = await fetchAndComputeMd5(eventUrl);
+    const md5 = await fetchAndComputeMd5(articleUrl);
 
     // 3. 交互式获取凭据
     console.log("\n请输入 OpenList 管理员凭据:");
@@ -240,12 +268,12 @@ async function main() {
 
     // 5. 保存 URL 到文件
     const outputPath = join(__dirname, "..", "public", "campus-url.txt");
-    writeFileSync(outputPath, eventUrl, "utf-8");
+    writeFileSync(outputPath, articleUrl, "utf-8");
     console.log(`\n✓ URL 已保存到 ${outputPath}`);
 
     console.log("\n========================================");
     console.log("完成！请提交 public/campus-url.txt 并部署。");
-    console.log(`使用的 URL: ${eventUrl}`);
+    console.log(`使用的 URL: ${articleUrl}`);
     console.log(`密码 MD5: ${md5}`);
     console.log("========================================");
   } catch (error) {
