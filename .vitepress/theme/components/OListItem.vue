@@ -247,31 +247,61 @@ const onSort = (event: TreeTableSortEvent) => {
   });
 };
 
-// 校园网检测：尝试获取隐藏的"校内资源"文件夹
+// 校园网检测：使用图片验证
+interface CampusVerifyData {
+  images: Array<{ url: string; md5: string }>;
+  generatedAt: string;
+}
+
 async function tryCampusNetworkDetection() {
   try {
-    // 1. 获取 campus-url.txt
-    const urlRes = await fetch("/campus-url.txt");
-    if (!urlRes.ok) {
-      console.log("[Campus] campus-url.txt not found");
+    // 1. 获取验证数据
+    const configRes = await fetch("/campus-verify.json");
+    if (!configRes.ok) {
+      console.log("[Campus] campus-verify.json not found");
       return;
     }
-    const campusUrl = (await urlRes.text()).trim();
-    if (!campusUrl) return;
+    const config: CampusVerifyData = await configRes.json();
 
-    // 2. 尝试获取该 URL 并计算 MD5
-    const md5 = await fetchHtmlAndComputeMd5(campusUrl);
-    // console.log("[Campus] MD5 computed:", md5);
+    if (!config.images || config.images.length === 0) {
+      console.log("[Campus] No verification images configured");
+      return;
+    }
 
-    // 3. 使用 MD5 作为密码请求校内资源
+    // 2. 并行加载所有图片并计算各自的密码
+    console.log(`[Campus] Loading ${config.images.length} images...`);
+    const passwordPromises = config.images.map((imgData) =>
+      tryLoadImageAndComputePassword(imgData.url, imgData.md5),
+    );
+    const passwords = await Promise.all(passwordPromises);
+
+    // 过滤掉失败的（null）
+    const validPasswords = passwords.filter((p): p is string => p !== null);
+    console.log(
+      `[Campus] ${validPasswords.length}/${config.images.length} images loaded`,
+    );
+
+    if (validPasswords.length === 0) {
+      console.log("[Campus] No images could be loaded");
+      return;
+    }
+
+    // 3. 将所有密码排序后拼接，计算综合MD5
+    const sortedPasswords = [...validPasswords].sort();
+    const combinedPassword = computeMd5Inline(sortedPasswords.join(""));
+    console.log(
+      `[Campus] Combined password from ${validPasswords.length} images`,
+    );
+
+    // 4. 使用综合密码请求校内资源
     const campusItems = await fetchListWithPassword(
       "/校内资源",
       host,
       "Fireworks",
-      md5,
+      combinedPassword,
     );
 
-    // 4. 成功！添加到列表
+    // 5. 成功！添加到列表
     const campusNode: TreeDataNode = {
       key: `campus-${data.value.length}`,
       data: {
@@ -311,9 +341,242 @@ async function tryCampusNetworkDetection() {
       life: 5000,
     });
   } catch (error) {
-    // 检测失败（非校园网或其他错误），静默忽略
     console.log("[Campus] Detection failed:", error);
   }
+}
+
+// 加载图片并使用尺寸计算密码
+function tryLoadImageAndComputePassword(
+  url: string,
+  realMd5: string,
+): Promise<string | null> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    // 不设置 crossOrigin - 只需要获取尺寸，不需要读取图片数据，因此不需要 CORS
+
+    const timeout = setTimeout(() => {
+      resolve(null);
+    }, 10000); // 10秒超时
+
+    img.onload = () => {
+      clearTimeout(timeout);
+      const width = img.naturalWidth;
+      const height = img.naturalHeight;
+
+      if (width === 0 || height === 0) {
+        resolve(null);
+        return;
+      }
+
+      // 使用MD5(realMd5 + 尺寸)作为密码
+      const dimsStr = `${width}x${height}`;
+      const password = md5(realMd5 + dimsStr);
+      resolve(password);
+    };
+
+    img.onerror = () => {
+      clearTimeout(timeout);
+      resolve(null);
+    };
+
+    img.src = url;
+  });
+}
+
+// MD5 函数已在 alist.api.mts 中定义，这里调用
+function md5(str: string): string {
+  // 调用 alist.api.mts 中已有的 MD5 实现
+  return (window as any).__campusMd5?.(str) || computeMd5Inline(str);
+}
+
+// 内联MD5实现备用
+function computeMd5Inline(string: string): string {
+  function rotateLeft(value: number, shift: number): number {
+    return (value << shift) | (value >>> (32 - shift));
+  }
+  function addUnsigned(x: number, y: number): number {
+    const lsw = (x & 0xffff) + (y & 0xffff);
+    const msw = (x >> 16) + (y >> 16) + (lsw >> 16);
+    return (msw << 16) | (lsw & 0xffff);
+  }
+  function F(x: number, y: number, z: number): number {
+    return (x & y) | (~x & z);
+  }
+  function G(x: number, y: number, z: number): number {
+    return (x & z) | (y & ~z);
+  }
+  function H(x: number, y: number, z: number): number {
+    return x ^ y ^ z;
+  }
+  function I(x: number, y: number, z: number): number {
+    return y ^ (x | ~z);
+  }
+  function FF(
+    a: number,
+    b: number,
+    c: number,
+    d: number,
+    x: number,
+    s: number,
+    t: number,
+  ): number {
+    a = addUnsigned(a, addUnsigned(addUnsigned(F(b, c, d), x), t));
+    return addUnsigned(rotateLeft(a, s), b);
+  }
+  function GG(
+    a: number,
+    b: number,
+    c: number,
+    d: number,
+    x: number,
+    s: number,
+    t: number,
+  ): number {
+    a = addUnsigned(a, addUnsigned(addUnsigned(G(b, c, d), x), t));
+    return addUnsigned(rotateLeft(a, s), b);
+  }
+  function HH(
+    a: number,
+    b: number,
+    c: number,
+    d: number,
+    x: number,
+    s: number,
+    t: number,
+  ): number {
+    a = addUnsigned(a, addUnsigned(addUnsigned(H(b, c, d), x), t));
+    return addUnsigned(rotateLeft(a, s), b);
+  }
+  function II(
+    a: number,
+    b: number,
+    c: number,
+    d: number,
+    x: number,
+    s: number,
+    t: number,
+  ): number {
+    a = addUnsigned(a, addUnsigned(addUnsigned(I(b, c, d), x), t));
+    return addUnsigned(rotateLeft(a, s), b);
+  }
+  function convertToWordArray(str: string): number[] {
+    const utf8 = unescape(encodeURIComponent(str));
+    const length = utf8.length;
+    const wordCount = ((length + 8) >>> 6) + 1;
+    const words: number[] = new Array(wordCount * 16).fill(0);
+    for (let i = 0; i < length; i++) {
+      words[i >>> 2] |= utf8.charCodeAt(i) << ((i % 4) * 8);
+    }
+    words[length >>> 2] |= 0x80 << ((length % 4) * 8);
+    words[wordCount * 16 - 2] = length * 8;
+    return words;
+  }
+  function wordToHex(value: number): string {
+    let hex = "";
+    for (let i = 0; i <= 3; i++) {
+      const byte = (value >>> (i * 8)) & 0xff;
+      hex += ("0" + byte.toString(16)).slice(-2);
+    }
+    return hex;
+  }
+
+  const x = convertToWordArray(string);
+  let a = 0x67452301,
+    b = 0xefcdab89,
+    c = 0x98badcfe,
+    d = 0x10325476;
+  const S11 = 7,
+    S12 = 12,
+    S13 = 17,
+    S14 = 22,
+    S21 = 5,
+    S22 = 9,
+    S23 = 14,
+    S24 = 20,
+    S31 = 4,
+    S32 = 11,
+    S33 = 16,
+    S34 = 23,
+    S41 = 6,
+    S42 = 10,
+    S43 = 15,
+    S44 = 21;
+
+  for (let k = 0; k < x.length; k += 16) {
+    const AA = a,
+      BB = b,
+      CC = c,
+      DD = d;
+    a = FF(a, b, c, d, x[k], S11, 0xd76aa478);
+    d = FF(d, a, b, c, x[k + 1], S12, 0xe8c7b756);
+    c = FF(c, d, a, b, x[k + 2], S13, 0x242070db);
+    b = FF(b, c, d, a, x[k + 3], S14, 0xc1bdceee);
+    a = FF(a, b, c, d, x[k + 4], S11, 0xf57c0faf);
+    d = FF(d, a, b, c, x[k + 5], S12, 0x4787c62a);
+    c = FF(c, d, a, b, x[k + 6], S13, 0xa8304613);
+    b = FF(b, c, d, a, x[k + 7], S14, 0xfd469501);
+    a = FF(a, b, c, d, x[k + 8], S11, 0x698098d8);
+    d = FF(d, a, b, c, x[k + 9], S12, 0x8b44f7af);
+    c = FF(c, d, a, b, x[k + 10], S13, 0xffff5bb1);
+    b = FF(b, c, d, a, x[k + 11], S14, 0x895cd7be);
+    a = FF(a, b, c, d, x[k + 12], S11, 0x6b901122);
+    d = FF(d, a, b, c, x[k + 13], S12, 0xfd987193);
+    c = FF(c, d, a, b, x[k + 14], S13, 0xa679438e);
+    b = FF(b, c, d, a, x[k + 15], S14, 0x49b40821);
+    a = GG(a, b, c, d, x[k + 1], S21, 0xf61e2562);
+    d = GG(d, a, b, c, x[k + 6], S22, 0xc040b340);
+    c = GG(c, d, a, b, x[k + 11], S23, 0x265e5a51);
+    b = GG(b, c, d, a, x[k], S24, 0xe9b6c7aa);
+    a = GG(a, b, c, d, x[k + 5], S21, 0xd62f105d);
+    d = GG(d, a, b, c, x[k + 10], S22, 0x2441453);
+    c = GG(c, d, a, b, x[k + 15], S23, 0xd8a1e681);
+    b = GG(b, c, d, a, x[k + 4], S24, 0xe7d3fbc8);
+    a = GG(a, b, c, d, x[k + 9], S21, 0x21e1cde6);
+    d = GG(d, a, b, c, x[k + 14], S22, 0xc33707d6);
+    c = GG(c, d, a, b, x[k + 3], S23, 0xf4d50d87);
+    b = GG(b, c, d, a, x[k + 8], S24, 0x455a14ed);
+    a = GG(a, b, c, d, x[k + 13], S21, 0xa9e3e905);
+    d = GG(d, a, b, c, x[k + 2], S22, 0xfcefa3f8);
+    c = GG(c, d, a, b, x[k + 7], S23, 0x676f02d9);
+    b = GG(b, c, d, a, x[k + 12], S24, 0x8d2a4c8a);
+    a = HH(a, b, c, d, x[k + 5], S31, 0xfffa3942);
+    d = HH(d, a, b, c, x[k + 8], S32, 0x8771f681);
+    c = HH(c, d, a, b, x[k + 11], S33, 0x6d9d6122);
+    b = HH(b, c, d, a, x[k + 14], S34, 0xfde5380c);
+    a = HH(a, b, c, d, x[k + 1], S31, 0xa4beea44);
+    d = HH(d, a, b, c, x[k + 4], S32, 0x4bdecfa9);
+    c = HH(c, d, a, b, x[k + 7], S33, 0xf6bb4b60);
+    b = HH(b, c, d, a, x[k + 10], S34, 0xbebfbc70);
+    a = HH(a, b, c, d, x[k + 13], S31, 0x289b7ec6);
+    d = HH(d, a, b, c, x[k + 0], S32, 0xeaa127fa);
+    c = HH(c, d, a, b, x[k + 3], S33, 0xd4ef3085);
+    b = HH(b, c, d, a, x[k + 6], S34, 0x4881d05);
+    a = HH(a, b, c, d, x[k + 9], S31, 0xd9d4d039);
+    d = HH(d, a, b, c, x[k + 12], S32, 0xe6db99e5);
+    c = HH(c, d, a, b, x[k + 15], S33, 0x1fa27cf8);
+    b = HH(b, c, d, a, x[k + 2], S34, 0xc4ac5665);
+    a = II(a, b, c, d, x[k], S41, 0xf4292244);
+    d = II(d, a, b, c, x[k + 7], S42, 0x432aff97);
+    c = II(c, d, a, b, x[k + 14], S43, 0xab9423a7);
+    b = II(b, c, d, a, x[k + 5], S44, 0xfc93a039);
+    a = II(a, b, c, d, x[k + 12], S41, 0x655b59c3);
+    d = II(d, a, b, c, x[k + 3], S42, 0x8f0ccc92);
+    c = II(c, d, a, b, x[k + 10], S43, 0xffeff47d);
+    b = II(b, c, d, a, x[k + 1], S44, 0x85845dd1);
+    a = II(a, b, c, d, x[k + 8], S41, 0x6fa87e4f);
+    d = II(d, a, b, c, x[k + 15], S42, 0xfe2ce6e0);
+    c = II(c, d, a, b, x[k + 6], S43, 0xa3014314);
+    b = II(b, c, d, a, x[k + 13], S44, 0x4e0811a1);
+    a = II(a, b, c, d, x[k + 4], S41, 0xf7537e82);
+    d = II(d, a, b, c, x[k + 11], S42, 0xbd3af235);
+    c = II(c, d, a, b, x[k + 2], S43, 0x2ad7d2bb);
+    b = II(b, c, d, a, x[k + 9], S44, 0xeb86d391);
+    a = addUnsigned(a, AA);
+    b = addUnsigned(b, BB);
+    c = addUnsigned(c, CC);
+    d = addUnsigned(d, DD);
+  }
+  return wordToHex(a) + wordToHex(b) + wordToHex(c) + wordToHex(d);
 }
 
 onMounted(async () => {
