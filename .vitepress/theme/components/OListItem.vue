@@ -11,9 +11,17 @@ import InputText from "primevue/inputtext";
 import FloatLabel from "primevue/floatlabel";
 import Dialog from "primevue/dialog";
 import Tag from "primevue/tag";
+import Toast from "primevue/toast";
+import { useToast } from "primevue/usetoast";
 import { data as defaultData } from "./alist.data.mjs";
-import { fetchList } from "./alist.api.mjs";
+import {
+  fetchList,
+  fetchListWithPassword,
+  fetchHtmlAndComputeMd5,
+} from "./alist.api.mjs";
 import type { DataItem } from "./alist.api.mjs";
+
+const toast = useToast();
 
 const {
   path = "/",
@@ -239,6 +247,75 @@ const onSort = (event: TreeTableSortEvent) => {
   });
 };
 
+// 校园网检测：尝试获取隐藏的"校内资源"文件夹
+async function tryCampusNetworkDetection() {
+  try {
+    // 1. 获取 campus-url.txt
+    const urlRes = await fetch("/campus-url.txt");
+    if (!urlRes.ok) {
+      console.log("[Campus] campus-url.txt not found");
+      return;
+    }
+    const campusUrl = (await urlRes.text()).trim();
+    if (!campusUrl) return;
+
+    // 2. 尝试获取该 URL 并计算 MD5
+    const md5 = await fetchHtmlAndComputeMd5(campusUrl);
+    // console.log("[Campus] MD5 computed:", md5);
+
+    // 3. 使用 MD5 作为密码请求校内资源
+    const campusItems = await fetchListWithPassword(
+      "/校内资源",
+      host,
+      "Fireworks",
+      md5,
+    );
+
+    // 4. 成功！添加到列表
+    const campusNode: TreeDataNode = {
+      key: `campus-${data.value.length}`,
+      data: {
+        name: "🏫 校内资源",
+        is_dir: true,
+        modified: new Date(),
+        size: 0,
+        path: "/校内资源",
+      },
+      children: campusItems.map((item: DataItem, index: number) => ({
+        key: `campus-${data.value.length}-${index}`,
+        data: item,
+        children: item.is_dir
+          ? [
+              {
+                key: `campus-${data.value.length}-${index}-loading`,
+                data: {
+                  name: "",
+                  is_dir: true,
+                  modified: new Date(),
+                  size: 0,
+                  path: "",
+                },
+                loading: true,
+              },
+            ]
+          : undefined,
+      })),
+    };
+
+    data.value = [...data.value, campusNode];
+
+    toast.add({
+      severity: "success",
+      summary: "校园网已连接",
+      detail: "已解锁校内资源文件夹",
+      life: 5000,
+    });
+  } catch (error) {
+    // 检测失败（非校园网或其他错误），静默忽略
+    console.log("[Campus] Detection failed:", error);
+  }
+}
+
 onMounted(async () => {
   data.value = (await fetchList(path, host)).map(
     (item: DataItem, index: number) => {
@@ -263,11 +340,15 @@ onMounted(async () => {
       };
     },
   );
+
+  // 异步执行校园网检测，不阻塞主加载
+  tryCampusNetworkDetection();
 });
 </script>
 
 <template>
   <div class="flex flex-col items-end w-full" ref="alist">
+    <Toast />
     <FloatLabel variant="on">
       <InputText id="search_alist" v-model="filters['name']" />
       <label for="search_alist">搜索</label>

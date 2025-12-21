@@ -4,6 +4,7 @@ import type { Theme } from "vitepress";
 import DefaultTheme from "vitepress/theme";
 import "./style.css";
 import PrimeVue from "primevue/config";
+import ToastService from "primevue/toastservice";
 import Aura from "@primeuix/themes/aura";
 import OList from "./components/OList.vue";
 import OListItem from "./components/OListItem.vue";
@@ -44,6 +45,7 @@ export default {
         },
       },
     });
+    app.use(ToastService);
     app.component("OList", OList);
     app.component("OListItem", OListItem);
   },
