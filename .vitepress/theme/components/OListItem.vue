@@ -604,8 +604,10 @@ onMounted(async () => {
     },
   );
 
-  // 异步执行校园网检测，不阻塞主加载
-  tryCampusNetworkDetection();
+  // 异步执行校园网检测，只在根目录时执行
+  if (path === "/") {
+    tryCampusNetworkDetection();
+  }
 });
 </script>
 
