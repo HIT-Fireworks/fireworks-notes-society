@@ -63,12 +63,6 @@ const downloadSources: DownloadSource[] = [
     recommended: true,
     description: "命中缓存时速度最快，推荐尝试",
   },
-  {
-    name: "ESA -> EO -> VPS 中转",
-    host: "https://olist.jwyihao.top",
-    base: "Fireworks（EdgeOne）",
-    description: "未命中缓存时速度较慢",
-  },
 ];
 
 // 下载弹窗状态
