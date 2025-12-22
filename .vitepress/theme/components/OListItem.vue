@@ -38,7 +38,7 @@ interface DownloadSource {
   name: string;
   host: string;
   base: string;
-  recommended?: boolean;
+  cacheHeaders?: string[]; // 用于检测缓存命中的 Header 名称列表
   description?: string;
 }
 
@@ -53,17 +53,23 @@ const downloadSources: DownloadSource[] = [
     name: "EdgeOne 中转",
     host: "https://olist-eo.jwyihao.top",
     base: "Fireworks",
-    recommended: true,
+    cacheHeaders: ["EO-Cache-Status"],
     description: "速度较快，但有 CDN 限速，推荐尝试",
   },
   {
     name: "ESA -> EO 中转",
     host: "https://olist-esa.jwyihao.top",
     base: "Fireworks",
-    recommended: true,
+    cacheHeaders: ["X-Site-Cache-Status", "EO-Cache-Status"],
     description: "命中缓存时速度最快，推荐尝试",
   },
 ];
+
+// 缓存状态类型
+type CacheStatus = "checking" | "hit" | "partial" | "miss" | null;
+
+// 每个下载源的缓存状态
+const cacheStatusMap = ref<Record<string, CacheStatus>>({});
 
 // 下载弹窗状态
 const downloadDialogVisible = ref(false);
@@ -139,10 +145,53 @@ function normalizeSize(size: number): string {
   }
 }
 
+// 检测缓存命中状态
+async function checkCacheStatus(source: DownloadSource, node: TreeDataNode) {
+  if (!source.cacheHeaders || source.cacheHeaders.length === 0) return;
+
+  // 设置检测中状态
+  cacheStatusMap.value[source.name] = "checking";
+
+  try {
+    // 构建检测URL
+    const filePath = node.data.path.replace(/^\/+/, "");
+    const url = `${source.host}/d/${source.base}/${filePath}`;
+
+    // 使用 HEAD 请求获取 headers
+    const res = await fetch(url, { method: "HEAD" });
+
+    // 检查 cacheHeaders 中每个 header 的值
+    const headerValues = source.cacheHeaders.map((h) => res.headers.get(h));
+
+    // 判断缓存状态
+    const firstHit = headerValues[0] === "HIT";
+    const anyHit = headerValues.some((v) => v === "HIT");
+
+    if (firstHit) {
+      cacheStatusMap.value[source.name] = "hit";
+    } else if (anyHit) {
+      cacheStatusMap.value[source.name] = "partial";
+    } else {
+      cacheStatusMap.value[source.name] = "miss";
+    }
+  } catch (e) {
+    console.error(`[Cache] Failed to check ${source.name}:`, e);
+    cacheStatusMap.value[source.name] = null;
+  }
+}
+
 // 打开下载选择对话框
 function openDownloadDialog(node: TreeDataNode) {
   pendingDownloadNode.value = node;
   downloadDialogVisible.value = true;
+
+  // 重置缓存状态并异步检测
+  cacheStatusMap.value = {};
+  for (const source of downloadSources) {
+    if (source.cacheHeaders) {
+      checkCacheStatus(source, node);
+    }
+  }
 }
 
 // 执行实际下载
@@ -768,10 +817,61 @@ onMounted(async () => {
           @click="downloadWithSource(source)"
         >
           <div class="flex items-center gap-1.5">
+            <!-- 缓存检测中 -->
             <Tag
-              v-if="source.recommended"
-              value="推荐"
+              v-if="cacheStatusMap[source.name] === 'checking'"
+              severity="warn"
+              rounded
+              :pt="{
+                root: {
+                  style: {
+                    padding: '0px 0.5rem',
+                    fontSize: '0.65rem',
+                    lineHeight: '1.25rem',
+                  },
+                },
+              }"
+            >
+              <i class="pi pi-spin pi-spinner mr-1" style="font-size: 0.6rem" />
+              检测中
+            </Tag>
+            <!-- 缓存命中 -->
+            <Tag
+              v-else-if="cacheStatusMap[source.name] === 'hit'"
+              value="缓存命中"
               severity="success"
+              rounded
+              :pt="{
+                root: {
+                  style: {
+                    padding: '0px 0.5rem',
+                    fontSize: '0.65rem',
+                    lineHeight: '1.25rem',
+                  },
+                },
+              }"
+            />
+            <!-- 部分命中 -->
+            <Tag
+              v-else-if="cacheStatusMap[source.name] === 'partial'"
+              value="部分命中"
+              severity="warn"
+              rounded
+              :pt="{
+                root: {
+                  style: {
+                    padding: '0px 0.5rem',
+                    fontSize: '0.65rem',
+                    lineHeight: '1.25rem',
+                  },
+                },
+              }"
+            />
+            <!-- 未命中 -->
+            <Tag
+              v-else-if="cacheStatusMap[source.name] === 'miss'"
+              value="未命中"
+              severity="danger"
               rounded
               :pt="{
                 root: {
