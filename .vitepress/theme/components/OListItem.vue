@@ -66,10 +66,13 @@ const downloadSources: DownloadSource[] = [
 ];
 
 // 缓存状态类型
-type CacheStatus = "checking" | "hit" | "partial" | "miss" | null;
+interface CacheStatusInfo {
+  status: "checking" | "hit" | "secondary" | "miss" | "percentage";
+  hitRate?: number; // 0-100，用于文件夹的命中百分比
+}
 
 // 每个下载源的缓存状态
-const cacheStatusMap = ref<Record<string, CacheStatus>>({});
+const cacheStatusMap = ref<Record<string, CacheStatusInfo | null>>({});
 
 // 下载弹窗状态
 const downloadDialogVisible = ref(false);
@@ -145,34 +148,129 @@ function normalizeSize(size: number): string {
   }
 }
 
-// 检测缓存命中状态
+// 递归收集所有文件（用于文件夹的缓存检测）
+// 如果子文件夹未加载，会通过 API 获取
+async function collectAllFilesForCacheCheck(
+  folderPath: string,
+  sourceHost: string,
+  sourceBase: string,
+): Promise<string[]> {
+  try {
+    const items = await fetchList(folderPath, sourceHost, sourceBase);
+    const files: string[] = [];
+
+    for (const item of items) {
+      if (item.is_dir) {
+        // 递归获取子文件夹中的文件
+        const subFiles = await collectAllFilesForCacheCheck(
+          item.path,
+          sourceHost,
+          sourceBase,
+        );
+        files.push(...subFiles);
+      } else {
+        files.push(item.path);
+      }
+    }
+
+    return files;
+  } catch (e) {
+    console.error(`[Cache] Failed to list folder ${folderPath}:`, e);
+    return [];
+  }
+}
+
+// 检测单个文件的缓存状态，返回 'hit' | 'secondary' | 'miss'
+async function checkSingleFileCacheStatus(
+  source: DownloadSource,
+  fileNode: TreeDataNode,
+): Promise<"hit" | "secondary" | "miss" | null> {
+  return checkSingleFileCacheStatusByPath(source, fileNode.data.path);
+}
+
+// 检测单个文件的缓存状态（通过路径）
+async function checkSingleFileCacheStatusByPath(
+  source: DownloadSource,
+  filePath: string,
+): Promise<"hit" | "secondary" | "miss" | null> {
+  if (!source.cacheHeaders || source.cacheHeaders.length === 0) return null;
+
+  try {
+    const cleanPath = filePath.replace(/^\/+/, "");
+    const encodedPath = cleanPath
+      .split("/")
+      .map((segment) => encodeURIComponent(segment))
+      .join("/");
+    const url = `${source.host}/d/${source.base}/${encodedPath}`;
+
+    const res = await fetch(url, { method: "HEAD" });
+    const headerValues = source.cacheHeaders.map((h) => res.headers.get(h));
+
+    const firstHit = headerValues[0] === "HIT";
+    const anyHit = headerValues.some((v) => v === "HIT");
+
+    if (firstHit) return "hit";
+    if (anyHit) return "secondary";
+    return "miss";
+  } catch (e) {
+    console.error(`[Cache] Failed to check file:`, e);
+    return null;
+  }
+}
+
+// 检测缓存命中状态（主函数）
 async function checkCacheStatus(source: DownloadSource, node: TreeDataNode) {
   if (!source.cacheHeaders || source.cacheHeaders.length === 0) return;
 
   // 设置检测中状态
-  cacheStatusMap.value[source.name] = "checking";
+  cacheStatusMap.value[source.name] = { status: "checking" };
 
   try {
-    // 构建检测URL
-    const filePath = node.data.path.replace(/^\/+/, "");
-    const url = `${source.host}/d/${source.base}/${filePath}`;
-
-    // 使用 HEAD 请求获取 headers
-    const res = await fetch(url, { method: "HEAD" });
-
-    // 检查 cacheHeaders 中每个 header 的值
-    const headerValues = source.cacheHeaders.map((h) => res.headers.get(h));
-
-    // 判断缓存状态
-    const firstHit = headerValues[0] === "HIT";
-    const anyHit = headerValues.some((v) => v === "HIT");
-
-    if (firstHit) {
-      cacheStatusMap.value[source.name] = "hit";
-    } else if (anyHit) {
-      cacheStatusMap.value[source.name] = "partial";
+    if (!node.data.is_dir) {
+      // 单文件检测
+      const result = await checkSingleFileCacheStatus(source, node);
+      if (result === null) {
+        cacheStatusMap.value[source.name] = null;
+      } else {
+        cacheStatusMap.value[source.name] = { status: result };
+      }
     } else {
-      cacheStatusMap.value[source.name] = "miss";
+      // 文件夹检测 - 通过 API 获取所有文件并计算命中率
+      const allFilePaths = await collectAllFilesForCacheCheck(
+        node.data.path,
+        source.host,
+        source.base,
+      );
+      if (allFilePaths.length === 0) {
+        cacheStatusMap.value[source.name] = null;
+        return;
+      }
+
+      // 并行检测所有文件
+      const results = await Promise.all(
+        allFilePaths.map((path) =>
+          checkSingleFileCacheStatusByPath(source, path),
+        ),
+      );
+
+      // 计算命中率（hit 和 secondary 都算命中）
+      const validResults = results.filter(
+        (r): r is "hit" | "secondary" | "miss" => r !== null,
+      );
+      if (validResults.length === 0) {
+        cacheStatusMap.value[source.name] = null;
+        return;
+      }
+
+      const hitCount = validResults.filter(
+        (r) => r === "hit" || r === "secondary",
+      ).length;
+      const hitRate = Math.round((hitCount / validResults.length) * 100);
+
+      cacheStatusMap.value[source.name] = {
+        status: "percentage",
+        hitRate,
+      };
     }
   } catch (e) {
     console.error(`[Cache] Failed to check ${source.name}:`, e);
@@ -209,7 +307,11 @@ async function executeDownload(
     }
   } else {
     const filePath = node.data.path.replace(/^\/+/, ""); // 移除开头的斜杠
-    const url = `${downloadHost}/d/${downloadBase}/${filePath}`;
+    const encodedPath = filePath
+      .split("/")
+      .map((segment) => encodeURIComponent(segment))
+      .join("/");
+    const url = `${downloadHost}/d/${downloadBase}/${encodedPath}`;
     const a = document.createElement("a");
     a.href = url;
     a.download = node.data.name;
@@ -819,7 +921,7 @@ onMounted(async () => {
           <div class="flex items-center gap-1.5">
             <!-- 缓存检测中 -->
             <Tag
-              v-if="cacheStatusMap[source.name] === 'checking'"
+              v-if="cacheStatusMap[source.name]?.status === 'checking'"
               severity="warn"
               rounded
               :pt="{
@@ -837,7 +939,7 @@ onMounted(async () => {
             </Tag>
             <!-- 缓存命中 -->
             <Tag
-              v-else-if="cacheStatusMap[source.name] === 'hit'"
+              v-else-if="cacheStatusMap[source.name]?.status === 'hit'"
               value="缓存命中"
               severity="success"
               rounded
@@ -851,10 +953,10 @@ onMounted(async () => {
                 },
               }"
             />
-            <!-- 部分命中 -->
+            <!-- 二级命中 -->
             <Tag
-              v-else-if="cacheStatusMap[source.name] === 'partial'"
-              value="部分命中"
+              v-else-if="cacheStatusMap[source.name]?.status === 'secondary'"
+              value="二级命中"
               severity="warn"
               rounded
               :pt="{
@@ -869,9 +971,31 @@ onMounted(async () => {
             />
             <!-- 未命中 -->
             <Tag
-              v-else-if="cacheStatusMap[source.name] === 'miss'"
+              v-else-if="cacheStatusMap[source.name]?.status === 'miss'"
               value="未命中"
               severity="danger"
+              rounded
+              :pt="{
+                root: {
+                  style: {
+                    padding: '0px 0.5rem',
+                    fontSize: '0.65rem',
+                    lineHeight: '1.25rem',
+                  },
+                },
+              }"
+            />
+            <!-- 文件夹命中率 -->
+            <Tag
+              v-else-if="cacheStatusMap[source.name]?.status === 'percentage'"
+              :value="`${cacheStatusMap[source.name]?.hitRate}%命中`"
+              :severity="
+                (cacheStatusMap[source.name]?.hitRate ?? 0) >= 80
+                  ? 'success'
+                  : (cacheStatusMap[source.name]?.hitRate ?? 0) >= 50
+                    ? 'warn'
+                    : 'danger'
+              "
               rounded
               :pt="{
                 root: {
