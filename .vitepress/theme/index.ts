@@ -10,6 +10,7 @@ import OList from "./components/OList.vue";
 import OListItem from "./components/OListItem.vue";
 import { definePreset } from "@primeuix/themes";
 import { primitive } from "@primeuix/themes/aura/base";
+import GLayout from "./GLayout.vue";
 
 const MyPreset = definePreset(Aura, {
   semantic: {
@@ -31,11 +32,7 @@ const MyPreset = definePreset(Aura, {
 
 export default {
   extends: DefaultTheme,
-  Layout: () => {
-    return h(DefaultTheme.Layout, null, {
-      // https://vitepress.dev/guide/extending-default-theme#layout-slots
-    });
-  },
+  Layout: GLayout,
   enhanceApp({ app, router, siteData }) {
     app.use(PrimeVue, {
       theme: {
