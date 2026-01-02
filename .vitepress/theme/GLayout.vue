@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import DefaultTheme from "vitepress/theme";
-import { nextTick, provide } from "vue";
+import { nextTick, provide, watch } from "vue";
 import { useData } from "vitepress";
+import { createMermaidRenderer } from "vitepress-mermaid-renderer";
 
 const { isDark } = useData();
 
@@ -39,6 +40,23 @@ provide("toggle-appearance", async ({ clientX: x, clientY: y }: MouseEvent) => {
     },
   );
 });
+
+const initMermaid = () => {
+  const mermaidRenderer = createMermaidRenderer({
+    theme: isDark.value ? "dark" : "forest",
+  });
+};
+
+// initial mermaid setup
+nextTick(() => initMermaid());
+
+// on theme change, re-render mermaid charts
+watch(
+  () => isDark.value,
+  () => {
+    initMermaid();
+  },
+);
 </script>
 
 <template>

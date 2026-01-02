@@ -32,6 +32,7 @@
     "@tailwindcss/vite": "^4.1.18",
     "primeicons": "^7.0.0",
     "primevue": "^4.5.4",
-    "tailwindcss": "^4.1.18"
+    "tailwindcss": "^4.1.18",
+    "vitepress-mermaid-renderer": "^1.1.7"
   }
 }
