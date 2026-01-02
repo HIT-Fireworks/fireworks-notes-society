@@ -78,4 +78,7 @@ export default defineConfig({
   lastUpdated: true,
   cleanUrls: true,
   srcExclude: ["README.md", "CONTRIBUTING.md"],
+  markdown: {
+    math: true,
+  },
 });
