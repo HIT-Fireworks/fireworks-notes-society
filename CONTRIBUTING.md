@@ -42,8 +42,8 @@
 git clone https://github.com/YOUR_USERNAME/fireworks-notes-society.git
 cd fireworks-notes-society
 
-# 3. 创建新分支
-git checkout -b feature/your-feature-name
+# 3. 创建并切换到新分支
+git switch -c feature/your-feature-name
 
 # 4. 安装依赖
 pnpm install
