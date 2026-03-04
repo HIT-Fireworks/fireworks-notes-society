@@ -49,11 +49,7 @@ markdown --> newLines
 ```ts [File 2] :line-numbers
 21312321312
 
-
-
-
 123123123 // [!code highlight]
-
 
 123123123 // [!code ++]
 
