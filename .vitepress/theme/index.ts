@@ -4,11 +4,13 @@ import type { Theme } from "vitepress";
 import DefaultTheme from "vitepress/theme";
 import "./style.css";
 import PrimeVue from "primevue/config";
+import ToastService from "primevue/toastservice";
 import Aura from "@primeuix/themes/aura";
 import OList from "./components/OList.vue";
 import OListItem from "./components/OListItem.vue";
 import { definePreset } from "@primeuix/themes";
 import { primitive } from "@primeuix/themes/aura/base";
+import GLayout from "./GLayout.vue";
 
 const MyPreset = definePreset(Aura, {
   semantic: {
@@ -30,11 +32,7 @@ const MyPreset = definePreset(Aura, {
 
 export default {
   extends: DefaultTheme,
-  Layout: () => {
-    return h(DefaultTheme.Layout, null, {
-      // https://vitepress.dev/guide/extending-default-theme#layout-slots
-    });
-  },
+  Layout: GLayout,
   enhanceApp({ app, router, siteData }) {
     app.use(PrimeVue, {
       theme: {
@@ -44,6 +42,7 @@ export default {
         },
       },
     });
+    app.use(ToastService);
     app.component("OList", OList);
     app.component("OListItem", OListItem);
   },
