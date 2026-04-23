@@ -23,13 +23,36 @@ import type { DataItem } from "./alist.api.mjs";
 
 const toast = useToast();
 
+/**
+ * AList / OList 文件列表组件。
+ *
+ * - 展示远端目录树（支持懒加载）
+ * - 支持过滤、排序与下载（含多下载线路选择）
+ * - 根目录下可尝试解锁“校内资源”目录
+ * @component
+ */
 const {
   path = "/",
   title = "吉の小网盘",
   host = "https://olist-eo.jwyihao.top",
 } = defineProps<{
+  /**
+   * 初始加载的目录路径（AList 路径）。
+   *
+   * - 当为 `/` 时会优先展示 `alist.data.mjs` 内置的默认数据（避免首屏空白），随后再拉取真实列表。
+   *
+   * @default "/"
+   */
   path?: string;
+  /**
+   * UI 上 Fieldset 的标题。
+   * @default "吉の小网盘"
+   */
   title?: string;
+  /**
+   * AList 服务端地址（用于 `fetchList` 等 API 请求）。
+   * @default "https://olist-eo.jwyihao.top"
+   */
   host?: string;
 }>();
 
@@ -136,6 +159,10 @@ const expandedKeys = ref<Record<string, boolean>>({});
 const selectedKeys =
   ref<Record<string, { checked: boolean; partialChecked: boolean }>>();
 
+/**
+ * 将字节数格式化为人类可读的文件大小字符串。
+ * @param size 文件大小（单位：Byte）
+ */
 function normalizeSize(size: number): string {
   if (size < 1024) {
     return size + " B";
@@ -150,6 +177,14 @@ function normalizeSize(size: number): string {
 
 // 递归收集所有文件（用于文件夹的缓存检测）
 // 如果子文件夹未加载，会通过 API 获取
+/**
+ * 递归收集某个目录下的所有“文件路径”（不含文件夹），用于缓存命中率检测。
+ *
+ * @param folderPath 目标文件夹路径
+ * @param sourceHost 下载源 host（用于 list API）
+ * @param sourceBase 下载源 base
+ * @returns 文件路径数组（可能为空；失败时返回空数组并记录错误日志）
+ */
 async function collectAllFilesForCacheCheck(
   folderPath: string,
   sourceHost: string,
@@ -181,6 +216,14 @@ async function collectAllFilesForCacheCheck(
 }
 
 // 检测单个文件的缓存状态，返回 'hit' | 'secondary' | 'miss'
+/**
+ * 检测单个文件节点在某个下载源上的缓存状态。
+ * @returns
+ * - `"hit"`：主缓存命中
+ * - `"secondary"`：二级缓存命中
+ * - `"miss"`：未命中
+ * - `null`：该下载源未配置缓存检测 Header 或检测失败
+ */
 async function checkSingleFileCacheStatus(
   source: DownloadSource,
   fileNode: TreeDataNode,
@@ -189,6 +232,11 @@ async function checkSingleFileCacheStatus(
 }
 
 // 检测单个文件的缓存状态（通过路径）
+/**
+ * 通过文件路径对某个下载源执行缓存命中检测（使用 `HEAD` 请求读取响应头）。
+ *
+ * 注意：仅当下载源配置了 `cacheHeaders` 时生效。
+ */
 async function checkSingleFileCacheStatusByPath(
   source: DownloadSource,
   filePath: string,
@@ -219,6 +267,12 @@ async function checkSingleFileCacheStatusByPath(
 }
 
 // 检测缓存命中状态（主函数）
+/**
+ * 对指定节点（文件/文件夹）执行缓存状态检测，并把结果写入 `cacheStatusMap`。
+ *
+ * - 文件：检测一次并标注命中/未命中
+ * - 文件夹：递归列出所有文件，并并行检测每个文件的命中情况，最终计算命中率
+ */
 async function checkCacheStatus(source: DownloadSource, node: TreeDataNode) {
   if (!source.cacheHeaders || source.cacheHeaders.length === 0) return;
 
@@ -279,6 +333,9 @@ async function checkCacheStatus(source: DownloadSource, node: TreeDataNode) {
 }
 
 // 打开下载选择对话框
+/**
+ * 打开“下载线路选择”对话框，并对支持缓存检测的线路异步发起检测。
+ */
 function openDownloadDialog(node: TreeDataNode) {
   pendingDownloadNode.value = node;
   downloadDialogVisible.value = true;
@@ -293,6 +350,14 @@ function openDownloadDialog(node: TreeDataNode) {
 }
 
 // 执行实际下载
+/**
+ * 执行下载：
+ * - 若为文件夹：递归下载其子文件（必要时先触发加载子目录）。
+ * - 若为文件：构造下载链接并触发浏览器下载。
+ *
+ * 说明：这里使用创建 `<a>` 并点击的方式触发下载；为了避免过快触发导致浏览器拦截，
+ * 会按文件大小进行一定的延时。
+ */
 async function executeDownload(
   node: TreeDataNode,
   downloadHost: string,
@@ -331,12 +396,18 @@ async function executeDownload(
 }
 
 // 使用选定源下载
+/**
+ * 使用用户选择的下载源开始下载（会关闭对话框）。
+ */
 async function downloadWithSource(source: (typeof downloadSources)[0]) {
   if (!pendingDownloadNode.value) return;
   downloadDialogVisible.value = false;
   await executeDownload(pendingDownloadNode.value, source.host, source.base);
 }
 
+/**
+ * 批量下载入口：当勾选了若干条目时，取第一个条目作为下载起点并弹出线路选择。
+ */
 async function groupDownload() {
   const selected = Object.entries(selectedKeys.value ?? {}).filter(
     ([, value]) => value.checked && value.partialChecked === false,
@@ -398,6 +469,9 @@ interface CampusVerifyData {
   generatedAt: string;
 }
 
+/**
+ * 尝试进行校园网检测，并在成功时把“校内资源”目录追加到列表中。
+ */
 async function tryCampusNetworkDetection() {
   try {
     // 1. 获取验证数据
@@ -491,6 +565,13 @@ async function tryCampusNetworkDetection() {
 }
 
 // 加载图片并使用尺寸计算密码
+/**
+ * 加载一张图片，仅通过其自然尺寸（不读取像素数据）计算访问密码。
+ *
+ * @param url 图片 URL
+ * @param realMd5 图片内容的真实 MD5（来自配置文件，用作盐）
+ * @returns 密码字符串；加载/超时/尺寸异常则返回 `null`
+ */
 function tryLoadImageAndComputePassword(
   url: string,
   realMd5: string,
@@ -529,12 +610,23 @@ function tryLoadImageAndComputePassword(
 }
 
 // MD5 函数已在 alist.api.mts 中定义，这里调用
+/**
+ * 计算字符串 MD5。
+ *
+ * - 优先使用页面全局注入的实现（`window.__campusMd5`）
+ * - 若不存在则回退到本文件的 `computeMd5Inline`
+ */
 function md5(str: string): string {
   // 调用 alist.api.mts 中已有的 MD5 实现
   return (window as any).__campusMd5?.(str) || computeMd5Inline(str);
 }
 
 // 内联MD5实现备用
+/**
+ * 备用的内联 MD5 实现（用于无法获取外部实现时）。
+ *
+ * 注意：这是为“校园网检测”准备的兜底实现，性能不是重点。
+ */
 function computeMd5Inline(string: string): string {
   function rotateLeft(value: number, shift: number): number {
     return (value << shift) | (value >>> (32 - shift));
