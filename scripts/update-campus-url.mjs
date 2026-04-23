@@ -9,7 +9,7 @@
  * 5. 保存图片验证数据到配置文件
  *
  * 使用方法：
- *   node scripts/update-campus-url.mjs
+ *   bun scripts/update-campus-url.mjs
  */
 
 import { createHash } from "crypto";

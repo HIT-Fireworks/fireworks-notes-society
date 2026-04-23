@@ -46,10 +46,10 @@ cd fireworks-notes-society
 git switch -c feature/your-feature-name
 
 # 4. 安装依赖
-pnpm install
+bun install
 
 # 5. 启动开发服务器
-pnpm docs:dev
+bun run docs:dev
 
 # 6. 进行修改...
 
@@ -88,7 +88,7 @@ git push origin feature/your-feature-name
 在提交代码更改前，请运行格式化：
 
 ```bash
-pnpm format
+bun run format
 ```
 
 ## 💡 提交信息规范

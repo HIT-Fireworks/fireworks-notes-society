@@ -45,14 +45,13 @@ fireworks-notes-society/
 - **框架**：[VitePress](https://vitepress.dev/) - Vue 驱动的静态站点生成器
 - **样式**：[Tailwind CSS](https://tailwindcss.com/) + [PrimeVue](https://primevue.org/)
 - **部署**：GitHub Pages + GitHub Actions 自动化部署
-- **包管理**：pnpm
+- **包管理 / 运行时**：Bun
 
 ## 🚀 快速开始
 
 ### 环境要求
 
-- Node.js 18+
-- pnpm 10+
+- Bun 1.3.12+
 
 ### 本地开发
 
@@ -62,16 +61,16 @@ git clone https://github.com/HIT-Fireworks/fireworks-notes-society.git
 cd fireworks-notes-society
 
 # 安装依赖
-pnpm install
+bun install
 
 # 启动开发服务器
-pnpm docs:dev
+bun run docs:dev
 
 # 构建生产版本
-pnpm docs:build
+bun run docs:build
 
 # 预览构建结果
-pnpm docs:preview
+bun run docs:preview
 ```
 
 ## 📝 参与贡献
