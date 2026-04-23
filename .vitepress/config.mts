@@ -41,7 +41,13 @@ export default defineConfig({
         useFolderLinkFromIndexFile: true,
         useFolderTitleFromIndexFile: true,
         useTitleFromFileHeading: true,
-        excludePattern: ["parts", "team.md", "README.md", "CONTRIBUTING.md"],
+        excludePattern: [
+          "parts",
+          "docs",
+          "README.md",
+          "CONTRIBUTING.md",
+          "team.md",
+        ],
       },
     ]),
 
@@ -77,7 +83,7 @@ export default defineConfig({
 
   lastUpdated: true,
   cleanUrls: true,
-  srcExclude: ["README.md", "CONTRIBUTING.md"],
+  srcExclude: ["README.md", "CONTRIBUTING.md", "docs/**"],
   markdown: {
     math: true,
   },
