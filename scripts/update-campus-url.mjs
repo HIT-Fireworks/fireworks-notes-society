@@ -15,10 +15,9 @@
 import { createHash } from "crypto";
 import { writeFileSync } from "fs";
 import { createInterface } from "readline";
-import { fileURLToPath } from "url";
+import { fileURLToPath, pathToFileURL } from "url";
 import { dirname, join } from "path";
 import { get } from "https";
-import { get as httpGet } from "http";
 import { promisify } from "util";
 import { Buffer } from "buffer";
 
@@ -33,7 +32,11 @@ const TARGET_PATHS = ["/Fireworks/校内资源", "/Fireworks（EdgeOne）/校内
 
 // 配置
 const TARGET_IMAGE_COUNT = 20;
-const MYTODAY_BASE = "http://mytoday.hit.edu.cn";
+const ZB_BASE = "https://zb.hit.edu.cn";
+const ZB_HOST = "zb.hit.edu.cn";
+const IDS_HOST = "ids.hit.edu.cn";
+const MAX_REDIRECTS = 5;
+const CAMPUS_IMAGE_PATH_PREFIXES = ["/upload/hit/image/", "/images/help/"];
 
 /**
  * 交互式读取用户输入
@@ -86,28 +89,97 @@ function promptPassword(question) {
   });
 }
 
+function parseUrl(input, base = ZB_BASE) {
+  let parsed;
+  try {
+    parsed = new URL(input, base);
+  } catch {
+    throw new Error(`无效 URL: ${input}`);
+  }
+  return parsed;
+}
+
+export function parseHttpsUrl(input, base = ZB_BASE) {
+  const parsed = parseUrl(input, base);
+  if (parsed.protocol !== "https:") {
+    throw new Error(`不允许的协议: ${parsed.protocol}`);
+  }
+  return parsed;
+}
+
+export function normalizeZbRequestUrl(input, base = ZB_BASE) {
+  const parsed = parseHttpsUrl(input, base);
+  if (parsed.hostname !== ZB_HOST) {
+    throw new Error(`不允许的主机: ${parsed.hostname}`);
+  }
+  parsed.hash = "";
+  return parsed;
+}
+
+export function normalizeCampusImageUrl(src) {
+  let parsed;
+  try {
+    parsed = normalizeZbRequestUrl(src);
+  } catch {
+    return null;
+  }
+  const pathname = parsed.pathname.replace(/^\/+/, "/");
+  if (!CAMPUS_IMAGE_PATH_PREFIXES.some((prefix) => pathname.startsWith(prefix))) {
+    return null;
+  }
+  parsed.pathname = pathname;
+  return parsed.toString();
+}
+
+export function resolveRedirectUrl(location, currentUrl, redirectCount) {
+  if (redirectCount >= MAX_REDIRECTS) {
+    throw new Error(`重定向次数超过上限 ${MAX_REDIRECTS}`);
+  }
+  const nextUrl = parseUrl(location, currentUrl);
+  if (nextUrl.hostname === IDS_HOST) {
+    throw new Error("需要登录");
+  }
+  return normalizeZbRequestUrl(nextUrl.href);
+}
+
 /**
  * HTTP/HTTPS GET 请求，返回Buffer（用于图片）
  */
-function fetchBuffer(url) {
+function fetchBuffer(url, redirectCount = 0) {
   return new Promise((resolve, reject) => {
-    const getter = url.startsWith("https") ? get : httpGet;
-    getter(url, (res) => {
+    let requestUrl;
+    try {
+      requestUrl = normalizeZbRequestUrl(url);
+    } catch (error) {
+      reject(error);
+      return;
+    }
+
+    get(requestUrl, (res) => {
       // 处理重定向
       if (
         res.statusCode >= 300 &&
         res.statusCode < 400 &&
         res.headers.location
       ) {
-        // 检查是否重定向到登录页面
-        if (res.headers.location.includes("ids.hit.edu.cn")) {
-          reject(new Error("需要登录"));
+        let nextUrl;
+        try {
+          nextUrl = resolveRedirectUrl(
+            res.headers.location,
+            requestUrl,
+            redirectCount,
+          );
+        } catch (error) {
+          res.resume();
+          reject(error);
           return;
         }
-        fetchBuffer(res.headers.location).then(resolve).catch(reject);
+        res.resume();
+        fetchBuffer(nextUrl.href, redirectCount + 1).then(resolve).catch(reject);
         return;
       }
       if (res.statusCode !== 200) {
+        res.resume();
         reject(new Error(`HTTP ${res.statusCode}`));
         return;
       }
@@ -191,8 +263,6 @@ function getImageDimensions(buffer) {
 async function collectImageVerificationData() {
   console.log("=== 收集图片验证数据 (zb.hit.edu.cn/help) ===\n");
 
-  const ZB_BASE = "https://zb.hit.edu.cn";
-
   // 1. 获取第一页，解析总页数
   console.log("获取帮助中心第一页...");
   const firstPageHtml = await fetchText(`${ZB_BASE}/help?page=1`);
@@ -269,17 +339,13 @@ async function collectImageVerificationData() {
       continue;
     }
 
-    // 提取图片 - 筛选 /upload/hit/image/ 或 /images/help/ 路径
-    const imgMatches = articleHtml.matchAll(
-      /<img[^>]+src="([^"]+(?:\/upload\/hit\/image\/|\/images\/help\/)[^"]+)"/g,
-    );
+    const imgMatches = articleHtml.matchAll(/<img\b[^>]*\bsrc=["']([^"']+)["'][^>]*>/gi);
     const imgUrls = [...imgMatches].map((m) => m[1]);
 
-    // 转为完整URL
     for (const src of imgUrls) {
-      const fullUrl = src.startsWith("http") ? src : `${ZB_BASE}${src}`;
-      if (!allImageUrls.includes(fullUrl)) {
-        allImageUrls.push(fullUrl);
+      const normalizedUrl = normalizeCampusImageUrl(src);
+      if (normalizedUrl && !allImageUrls.includes(normalizedUrl)) {
+        allImageUrls.push(normalizedUrl);
       }
     }
 
@@ -509,4 +575,6 @@ async function main() {
   }
 }
 
-main();
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main();
+}

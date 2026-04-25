@@ -20,6 +20,7 @@ import {
   fetchHtmlAndComputeMd5,
 } from "./alist.api.mjs";
 import type { DataItem } from "./alist.api.mjs";
+import { toUtf8BinaryString } from "./md5-utf8.mjs";
 
 const toast = useToast();
 
@@ -469,13 +470,42 @@ interface CampusVerifyData {
   generatedAt: string;
 }
 
+const CAMPUS_VERIFY_CONFIG_URL = "/campus-verify.json";
+const CAMPUS_IMAGE_HOST = "zb.hit.edu.cn";
+const CAMPUS_IMAGE_PATH_PREFIXES = ["/upload/hit/image/", "/images/help/"];
+
+function normalizeCampusImageUrl(input: string): string | null {
+  try {
+    const parsed = new URL(input);
+    const pathname = parsed.pathname.replace(/^\/+/, "/");
+
+    if (parsed.protocol !== "https:" || parsed.hostname !== CAMPUS_IMAGE_HOST) {
+      return null;
+    }
+
+    if (
+      !CAMPUS_IMAGE_PATH_PREFIXES.some((prefix) => pathname.startsWith(prefix))
+    ) {
+      return null;
+    }
+
+    parsed.pathname = pathname;
+    parsed.hash = "";
+    return parsed.toString();
+  } catch {
+    return null;
+  }
+}
+
 /**
  * 尝试进行校园网检测，并在成功时把“校内资源”目录追加到列表中。
  */
 async function tryCampusNetworkDetection() {
   try {
     // 1. 获取验证数据
-    const configRes = await fetch("/campus-verify.json");
+    const configRes = await fetch(CAMPUS_VERIFY_CONFIG_URL, {
+      cache: "no-cache",
+    });
     if (!configRes.ok) {
       console.log("[Campus] campus-verify.json not found");
       return;
@@ -487,9 +517,26 @@ async function tryCampusNetworkDetection() {
       return;
     }
 
+    const verificationImages = config.images.flatMap((imgData) => {
+      const normalizedUrl = normalizeCampusImageUrl(imgData.url);
+      if (!normalizedUrl) {
+        console.warn(
+          `[Campus] Ignoring invalid verification image: ${imgData.url}`,
+        );
+        return [];
+      }
+
+      return [{ ...imgData, url: normalizedUrl }];
+    });
+
+    if (verificationImages.length === 0) {
+      console.log("[Campus] No valid verification images configured");
+      return;
+    }
+
     // 2. 并行加载所有图片并计算各自的密码
-    console.log(`[Campus] Loading ${config.images.length} images...`);
-    const passwordPromises = config.images.map((imgData) =>
+    console.log(`[Campus] Loading ${verificationImages.length} images...`);
+    const passwordPromises = verificationImages.map((imgData) =>
       tryLoadImageAndComputePassword(imgData.url, imgData.md5),
     );
     const passwords = await Promise.all(passwordPromises);
@@ -497,7 +544,7 @@ async function tryCampusNetworkDetection() {
     // 过滤掉失败的（null）
     const validPasswords = passwords.filter((p): p is string => p !== null);
     console.log(
-      `[Campus] ${validPasswords.length}/${config.images.length} images loaded`,
+      `[Campus] ${validPasswords.length}/${verificationImages.length} images loaded`,
     );
 
     if (validPasswords.length === 0) {
@@ -580,29 +627,48 @@ function tryLoadImageAndComputePassword(
     const img = new Image();
     // 不设置 crossOrigin - 只需要获取尺寸，不需要读取图片数据，因此不需要 CORS
 
-    const timeout = setTimeout(() => {
-      resolve(null);
-    }, 10000); // 10秒超时
+    let settled = false;
+    let timeout: ReturnType<typeof setTimeout>;
+
+    const cleanup = (cancelLoad: boolean) => {
+      clearTimeout(timeout);
+      img.onload = null;
+      img.onerror = null;
+      if (cancelLoad) {
+        img.src = "";
+      }
+    };
+
+    const finish = (value: string | null, cancelLoad: boolean) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      cleanup(cancelLoad);
+      resolve(value);
+    };
+
+    timeout = setTimeout(() => {
+      finish(null, true);
+    }, 5000);
 
     img.onload = () => {
-      clearTimeout(timeout);
       const width = img.naturalWidth;
       const height = img.naturalHeight;
 
       if (width === 0 || height === 0) {
-        resolve(null);
+        finish(null, false);
         return;
       }
 
       // 使用MD5(realMd5 + 尺寸)作为密码
       const dimsStr = `${width}x${height}`;
       const password = md5(realMd5 + dimsStr);
-      resolve(password);
+      finish(password, false);
     };
 
     img.onerror = () => {
-      clearTimeout(timeout);
-      resolve(null);
+      finish(null, true);
     };
 
     img.src = url;
@@ -697,7 +763,7 @@ function computeMd5Inline(string: string): string {
     return addUnsigned(rotateLeft(a, s), b);
   }
   function convertToWordArray(str: string): number[] {
-    const utf8 = unescape(encodeURIComponent(str));
+    const utf8 = toUtf8BinaryString(str);
     const length = utf8.length;
     const wordCount = ((length + 8) >>> 6) + 1;
     const words: number[] = new Array(wordCount * 16).fill(0);

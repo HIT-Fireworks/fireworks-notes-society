@@ -1,3 +1,5 @@
+import { toUtf8BinaryString } from "./md5-utf8.mjs";
+
 export interface DataItem {
   name: string;
   is_dir: boolean;
@@ -141,7 +143,7 @@ function md5(string: string): string {
   }
 
   function convertToWordArray(str: string): number[] {
-    const utf8 = unescape(encodeURIComponent(str));
+    const utf8 = toUtf8BinaryString(str);
     const length = utf8.length;
     const wordCount = ((length + 8) >>> 6) + 1;
     const words: number[] = new Array(wordCount * 16).fill(0);
