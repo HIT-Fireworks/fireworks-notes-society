@@ -30,6 +30,7 @@
 ## Task 1: EdgeOne Pages 配置
 
 **Files:**
+
 - Create: `edgeone.json`
 
 - [ ] **Step 1: 写入 EdgeOne 配置文件**
@@ -108,6 +109,7 @@ Expected: diff 只包含新增 `edgeone.json`，且 `source` 为 `/*` 与 `/camp
 ## Task 2: 替换 MD5 UTF-8 编码路径
 
 **Files:**
+
 - Create: `.vitepress/theme/components/md5-utf8.mts`
 - Modify: `.vitepress/theme/components/alist.api.mts`
 - Modify: `.vitepress/theme/components/OListItem.vue`
@@ -204,6 +206,7 @@ no deprecated encoding API
 ## Task 3: 前端校园验证 URL、缓存和图片加载
 
 **Files:**
+
 - Modify: `.vitepress/theme/components/OListItem.vue`
 
 - [ ] **Step 1: 增加 URL 规范化常量和函数**
@@ -224,7 +227,9 @@ function normalizeCampusImageUrl(input: string): string | null {
       return null;
     }
 
-    if (!CAMPUS_IMAGE_PATH_PREFIXES.some((prefix) => pathname.startsWith(prefix))) {
+    if (
+      !CAMPUS_IMAGE_PATH_PREFIXES.some((prefix) => pathname.startsWith(prefix))
+    ) {
       return null;
     }
 
@@ -261,7 +266,9 @@ const configRes = await fetch(CAMPUS_VERIFY_CONFIG_URL, {
 const verificationImages = config.images.flatMap((imgData) => {
   const normalizedUrl = normalizeCampusImageUrl(imgData.url);
   if (!normalizedUrl) {
-    console.warn(`[Campus] Ignoring invalid verification image: ${imgData.url}`);
+    console.warn(
+      `[Campus] Ignoring invalid verification image: ${imgData.url}`,
+    );
     return [];
   }
 
@@ -359,6 +366,7 @@ Expected: build complete。
 ## Task 4: 维护脚本 URL 校验与现有 JSON 规范化
 
 **Files:**
+
 - Modify: `scripts/update-campus-url.mjs`
 - Modify: `public/campus-verify.json`
 
@@ -440,7 +448,9 @@ export function normalizeCampusImageUrl(src) {
 
   const pathname = parsed.pathname.replace(/^\/+/, "/");
 
-  if (!CAMPUS_IMAGE_PATH_PREFIXES.some((prefix) => pathname.startsWith(prefix))) {
+  if (
+    !CAMPUS_IMAGE_PATH_PREFIXES.some((prefix) => pathname.startsWith(prefix))
+  ) {
     return null;
   }
 
@@ -500,7 +510,9 @@ function fetchBuffer(url, redirectCount = 0) {
           return;
         }
 
-        fetchBuffer(nextUrl.href, redirectCount + 1).then(resolve).catch(reject);
+        fetchBuffer(nextUrl.href, redirectCount + 1)
+          .then(resolve)
+          .catch(reject);
         return;
       }
 
@@ -529,7 +541,10 @@ main();
 替换为：
 
 ```js
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (
+  process.argv[1] &&
+  import.meta.url === pathToFileURL(process.argv[1]).href
+) {
   main();
 }
 ```
@@ -559,7 +574,9 @@ for (const src of imgUrls) {
 替换为：
 
 ```js
-const imgMatches = articleHtml.matchAll(/<img\b[^>]*\bsrc=["']([^"']+)["'][^>]*>/gi);
+const imgMatches = articleHtml.matchAll(
+  /<img\b[^>]*\bsrc=["']([^"']+)["'][^>]*>/gi,
+);
 const imgUrls = [...imgMatches].map((m) => m[1]);
 
 for (const src of imgUrls) {
@@ -601,6 +618,7 @@ campus-verify urls ok
 ## Task 5: 最终验证
 
 **Files:**
+
 - Verify: `edgeone.json`
 - Verify: `.vitepress/theme/components/md5-utf8.mts`
 - Verify: `.vitepress/theme/components/alist.api.mts`

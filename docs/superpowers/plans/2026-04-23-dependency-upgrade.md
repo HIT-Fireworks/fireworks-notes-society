@@ -49,6 +49,7 @@
 ### Task 1: 基线检查与第一批运行栈升级
 
 **Files:**
+
 - Modify: `package.json`
 - Modify: `bun.lock`
 - Conditional Modify: `.vitepress/theme/index.ts`
@@ -249,6 +250,7 @@ No docs, README, CONTRIBUTING, workflow, or broad formatting-only changes are al
 ### Task 2: 第二批文档与工具链升级
 
 **Files:**
+
 - Modify: `package.json`
 - Modify: `bun.lock`
 - Conditional Modify: `.vitepress/theme/GLayout.vue`
@@ -432,6 +434,7 @@ The final committed state must not include `__dependency-smoke.md` or `.vitepres
 ### Task 3: 最终回归验证与状态检查
 
 **Files:**
+
 - Verify: `package.json`
 - Verify: `bun.lock`
 - Verify: `.github/workflows/deploy.yml`

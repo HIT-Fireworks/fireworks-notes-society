@@ -124,7 +124,9 @@ export function normalizeCampusImageUrl(src) {
     return null;
   }
   const pathname = parsed.pathname.replace(/^\/+/, "/");
-  if (!CAMPUS_IMAGE_PATH_PREFIXES.some((prefix) => pathname.startsWith(prefix))) {
+  if (
+    !CAMPUS_IMAGE_PATH_PREFIXES.some((prefix) => pathname.startsWith(prefix))
+  ) {
     return null;
   }
   parsed.pathname = pathname;
@@ -175,7 +177,9 @@ function fetchBuffer(url, redirectCount = 0) {
           return;
         }
         res.resume();
-        fetchBuffer(nextUrl.href, redirectCount + 1).then(resolve).catch(reject);
+        fetchBuffer(nextUrl.href, redirectCount + 1)
+          .then(resolve)
+          .catch(reject);
         return;
       }
       if (res.statusCode !== 200) {
@@ -339,7 +343,9 @@ async function collectImageVerificationData() {
       continue;
     }
 
-    const imgMatches = articleHtml.matchAll(/<img\b[^>]*\bsrc=["']([^"']+)["'][^>]*>/gi);
+    const imgMatches = articleHtml.matchAll(
+      /<img\b[^>]*\bsrc=["']([^"']+)["'][^>]*>/gi,
+    );
     const imgUrls = [...imgMatches].map((m) => m[1]);
 
     for (const src of imgUrls) {
@@ -575,6 +581,9 @@ async function main() {
   }
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (
+  process.argv[1] &&
+  import.meta.url === pathToFileURL(process.argv[1]).href
+) {
   main();
 }

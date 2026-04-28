@@ -8,6 +8,8 @@
     "docs:build": "bun --bun vitepress build",
     "docs:preview": "bun --bun vitepress preview",
     "update-campus": "bun scripts/update-campus-url.mjs",
+    "audit:openlist": "bun scripts/audit-openlist-structure.mjs",
+    "audit:openlist:self-test": "bun scripts/audit-openlist-structure.mjs --self-test",
     "format": "bun --bun prettier --write ."
   },
   "keywords": [

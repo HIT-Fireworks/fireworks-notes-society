@@ -1,0 +1,37 @@
+name: OpenList Audit
+
+on:
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 20 * * 0"
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        run: bun ci
+
+      - name: Run OpenList audit self-test
+        run: bun run audit:openlist:self-test
+
+      - name: Run OpenList audit report
+        run: bun run audit:openlist -- --depth 4 --report docs/superpowers/reports/openlist-audit.md
+
+      - name: Upload audit report
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: openlist-audit
+          path: docs/superpowers/reports/openlist-audit.md
+          if-no-files-found: warn

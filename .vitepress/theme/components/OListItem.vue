@@ -107,45 +107,48 @@ interface TreeDataNode extends TreeNode {
   children?: TreeDataNode[];
 }
 
+const filters = ref<Record<string, string>>({});
+const initialLoadError = ref<string | null>(null);
+const failedExpansionKeys = ref<Record<string, boolean>>({});
+
+function createLoadingNode(key: string): TreeDataNode {
+  return {
+    key,
+    data: {
+      name: "",
+      is_dir: true,
+      modified: new Date(),
+      size: 0,
+      path: "",
+    },
+    loading: true,
+  };
+}
+
+function mapItemsToTreeNodes(
+  items: DataItem[],
+  parentKey = "",
+): TreeDataNode[] {
+  return items.map((item: DataItem, index: number) => {
+    const key = parentKey ? `${parentKey}-${index}` : `${index}`;
+    return {
+      key,
+      data: item,
+      children: item.is_dir ? [createLoadingNode(`${key}-loading`)] : undefined,
+    };
+  });
+}
+
+function errorMessageForPath(targetPath: string, error: unknown): string {
+  const detail = error instanceof Error ? error.message : String(error);
+  return `资料目录 ${targetPath} 加载失败。请刷新页面重试，或联系维护者检查 OpenList 路径。${detail}`;
+}
+
 const data = ref<TreeDataNode[]>(
   path === "/"
-    ? defaultData.map((item: DataItem, index: number) => {
-        return {
-          key: `${index}`,
-          data: item,
-          children: item.is_dir
-            ? [
-                {
-                  key: `${index}-loading`,
-                  data: {
-                    name: "",
-                    is_dir: true,
-                    modified: new Date(),
-                    size: 0,
-                    path: "",
-                  },
-                  loading: true,
-                },
-              ]
-            : undefined,
-        };
-      })
-    : [
-        {
-          key: "loading",
-          data: {
-            name: "",
-            is_dir: true,
-            modified: new Date(),
-            size: 0,
-            path: "",
-          },
-          loading: true,
-        },
-      ],
+    ? mapItemsToTreeNodes(defaultData)
+    : [createLoadingNode("loading")],
 );
-
-const filters = ref<Record<string, string>>({});
 
 const filteredData = computed(() => {
   return data.value.filter((node) => {
@@ -424,29 +427,30 @@ async function groupDownload() {
 }
 
 const onExpand = async (node: TreeDataNode) => {
-  if (node.children?.[0]?.loading) {
+  const key = String(node.key);
+  if (
+    node.children &&
+    !node.children[0]?.loading &&
+    !failedExpansionKeys.value[key]
+  )
+    return;
+
+  try {
+    failedExpansionKeys.value[key] = false;
+    node.children = [createLoadingNode(`${node.key}-loading`)];
     const children = await fetchList(node.data.path, host);
-    node.children = children.map((item: DataItem, index: number) => {
-      return {
-        key: `${node.key}-${index}`,
-        data: item,
-        children: item.is_dir
-          ? [
-              {
-                key: `${node.key}-${index}-loading`,
-                data: {
-                  name: "",
-                  is_dir: true,
-                  modified: new Date(),
-                  size: 0,
-                  path: "",
-                },
-                loading: true,
-              },
-            ]
-          : undefined,
-      };
+    node.children = mapItemsToTreeNodes(children, String(node.key));
+  } catch (error) {
+    failedExpansionKeys.value[key] = true;
+    node.children = undefined;
+    expandedKeys.value[key] = false;
+    toast.add({
+      severity: "error",
+      summary: "资料目录加载失败",
+      detail: errorMessageForPath(node.data.path, error),
+      life: 8000,
     });
+    console.error(`[OList] Failed to expand ${node.data.path}:`, error);
   }
 };
 
@@ -883,29 +887,15 @@ function computeMd5Inline(string: string): string {
 }
 
 onMounted(async () => {
-  data.value = (await fetchList(path, host)).map(
-    (item: DataItem, index: number) => {
-      return {
-        key: `${index}`,
-        data: item,
-        children: item.is_dir
-          ? [
-              {
-                key: `${index}-loading`,
-                data: {
-                  name: "",
-                  is_dir: true,
-                  modified: new Date(),
-                  size: 0,
-                  path: "",
-                },
-                loading: true,
-              },
-            ]
-          : undefined,
-      };
-    },
-  );
+  try {
+    initialLoadError.value = null;
+    data.value = mapItemsToTreeNodes(await fetchList(path, host));
+  } catch (error) {
+    initialLoadError.value = errorMessageForPath(path, error);
+    data.value = [];
+    console.error(`[OList] Failed to load ${path}:`, error);
+    return;
+  }
 
   // 异步执行校园网检测，只在根目录时执行
   if (path === "/") {
@@ -948,7 +938,14 @@ onMounted(async () => {
         },
       }"
     >
+      <div
+        v-if="initialLoadError"
+        class="rounded border border-red-300 bg-red-50 p-4 text-sm text-red-700 dark:border-red-700 dark:bg-red-950/30 dark:text-red-200"
+      >
+        {{ initialLoadError }}
+      </div>
       <TreeTable
+        v-else
         v-model:expandedKeys="expandedKeys"
         v-model:selectionKeys="selectedKeys"
         :value="filteredData"

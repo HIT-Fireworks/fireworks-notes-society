@@ -35,6 +35,7 @@
 ### Task 1: 更新 Pages Workflow Action Versions
 
 **Files:**
+
 - Modify: `.github/workflows/deploy.yml:32-55`
 - Reference: `docs/superpowers/specs/2026-04-25-actions-node24-design.md`
 
@@ -61,30 +62,30 @@ Only the two superpowers docs should be untracked before editing the workflow.
 Edit `.github/workflows/deploy.yml` so the relevant steps become exactly:
 
 ```yaml
-      - name: Checkout
-        uses: actions/checkout@v6
+- name: Checkout
+  uses: actions/checkout@v6
 
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
+- name: Setup Bun
+  uses: oven-sh/setup-bun@v2
 
-      - name: Setup Pages
-        uses: actions/configure-pages@v6
+- name: Setup Pages
+  uses: actions/configure-pages@v6
 
-      - name: Install dependencies
-        run: bun ci
+- name: Install dependencies
+  run: bun ci
 
-      - name: Build VitePress
-        run: bun run docs:build
+- name: Build VitePress
+  run: bun run docs:build
 
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v5
-        with:
-          # Upload entire repository
-          path: "./.vitepress/dist"
+- name: Upload artifact
+  uses: actions/upload-pages-artifact@v5
+  with:
+    # Upload entire repository
+    path: "./.vitepress/dist"
 
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v5
+- name: Deploy to GitHub Pages
+  id: deployment
+  uses: actions/deploy-pages@v5
 ```
 
 Do not change any other workflow lines.
@@ -117,6 +118,7 @@ If permissions, triggers, Bun steps, build command, artifact path, concurrency, 
 ### Task 2: 本地验证
 
 **Files:**
+
 - Verify: `.github/workflows/deploy.yml`
 - Verify: `.vitepress/dist/**`
 
@@ -196,6 +198,7 @@ The workflow diff must still show only the four `uses:` major replacements from 
 ### Task 3: 提交、合并与远端验证
 
 **Files:**
+
 - Commit: `.github/workflows/deploy.yml`
 - Commit: `docs/superpowers/specs/2026-04-25-actions-node24-design.md`
 - Commit: `docs/superpowers/plans/2026-04-25-actions-node24.md`
