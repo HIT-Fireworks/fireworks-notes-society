@@ -14,6 +14,9 @@ hero:
     - theme: alt
       text: 在 Github 上查看
       link: https://github.com/HIT-Fireworks/fireworks-notes-society
+    - theme: alt
+      text: 获取更多练习题↗
+      link: https://github.com/HITLittleZheng/HITCS
   image:
     src: /logo.png
 
