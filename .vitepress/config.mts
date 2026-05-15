@@ -32,7 +32,7 @@ export default defineConfig({
     nav: [
       { text: "主页", link: "/" },
       { text: "笔记", link: "/lessons", activeMatch: "/lessons" },
-      { text: "项目成员", link: "/team.md" },
+      { text: "题目和其他资源", link: "https://github.com/HITLittleZheng/HITCS" },
     ],
 
     sidebar: generateSidebar([
@@ -46,7 +46,6 @@ export default defineConfig({
           "docs",
           "README.md",
           "CONTRIBUTING.md",
-          "team.md",
         ],
       },
     ]),
