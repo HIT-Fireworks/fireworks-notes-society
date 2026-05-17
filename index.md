@@ -14,6 +14,9 @@ hero:
     - theme: alt
       text: 在 Github 上查看
       link: https://github.com/HIT-Fireworks/fireworks-notes-society
+    - theme: alt
+      text: 其他友站
+      link: /friends
   image:
     src: /logo.png
 
