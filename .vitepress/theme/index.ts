@@ -8,7 +8,6 @@ import ToastService from "primevue/toastservice";
 import Aura from "@primeuix/themes/aura";
 import OList from "./components/OList.vue";
 import OListItem from "./components/OListItem.vue";
-import HITCS from "./components/HITCS.vue";
 import { definePreset } from "@primeuix/themes";
 import { primitive } from "@primeuix/themes/aura/base";
 import GLayout from "./GLayout.vue";
@@ -46,6 +45,5 @@ export default {
     app.use(ToastService);
     app.component("OList", OList);
     app.component("OListItem", OListItem);
-    app.component("HITCS", HITCS);
   },
 } satisfies Theme;

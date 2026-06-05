@@ -31,7 +31,7 @@ export default defineConfig({
     nav: [
       { text: "主页", link: "/" },
       { text: "笔记", link: "/lessons", activeMatch: "/lessons" },
-      { text: "题目和其他资源", link: "https://github.com/HITLittleZheng/HITCS" },
+      { text: "友站和其他资源", link: "/friends", activeMatch: "/friends" },
     ],
 
     sidebar: generateSidebar([
