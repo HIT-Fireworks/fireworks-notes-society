@@ -1,4 +1,8 @@
 {
+  "buildCommand": "bun run docs:build",
+  "installCommand": "bun install --frozen-lockfile",
+  "outputDirectory": ".vitepress/dist",
+  "nodeVersion": "22.11.0",
   "headers": [
     {
       "source": "/*",
