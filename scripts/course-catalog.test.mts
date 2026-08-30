@@ -44,6 +44,23 @@ test("课程资料按文件路由反向聚合且统计一致", () => {
     assert.equal(course.hasMaterial, files > 0, course.code);
   }
 });
+test("课程详情文件带有站内加速和 GitHub 直连地址", () => {
+  const materialCourses = catalog.courses.filter((course) => course.hasMaterial);
+  assert.ok(materialCourses.length > 0);
+  for (const course of materialCourses) {
+    const detail = details.get(course.code);
+    assert.ok(detail, course.code);
+    assert.equal(detail.files?.length, course.fileCount, course.code);
+    assert.ok(
+      detail.files?.every(
+        (file) =>
+          file.siteDownloadUrl.startsWith("/gh/") &&
+          file.githubRawUrl.startsWith("https://raw.githubusercontent.com/"),
+      ),
+      course.code,
+    );
+  }
+});
 
 test("课程 slug 唯一且来源文件固定", () => {
   const slugs = new Set(catalog.courses.map((course) => courseSlug(course.code)));

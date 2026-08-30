@@ -1,0 +1,319 @@
+import fs from "node:fs";
+import path from "node:path";
+
+export interface RepositoryFileEntry {
+  repoId: string;
+  repoName: string;
+  path: string;
+  name: string;
+  routeKind: string;
+  courseCodes: string[];
+  size: number;
+  origin: string;
+  githubRawUrl: string;
+  githubProxyUrls: string[];
+  siteDownloadUrl: string;
+}
+
+export interface RepositoryFileTreeNode {
+  name: string;
+  path: string;
+  isDirectory: boolean;
+  size: number;
+  children: RepositoryFileTreeNode[];
+  file?: RepositoryFileEntry;
+}
+
+export const DEFAULT_PROXY_NODES = [
+  "https://gh-proxy.com",
+  "https://gh.dpik.top",
+  "https://github.tbap.top",
+];
+
+const repoRoot = path.resolve(import.meta.dirname, "../..");
+const proxyConfigFile = path.join(repoRoot, "data/gh-proxy-nodes.json");
+const manifestFile = path.join(
+  repoRoot,
+  "data/repository-manifest.no-collection.v4.json",
+);
+const routesFile = path.join(repoRoot, "config/repository-file-routes.v4.json");
+const rawGithubOrigin = "https://raw.githubusercontent.com";
+
+type JsonRecord = Record<string, unknown>;
+
+interface ResourceSource {
+  repositories: JsonRecord[];
+  files: JsonRecord[];
+}
+
+let sourceCache: ResourceSource | undefined;
+let entriesCache: RepositoryFileEntry[] | undefined;
+let treeCache: Map<string, RepositoryFileTreeNode> | undefined;
+
+function readSource(): ResourceSource {
+  if (!sourceCache) {
+    const manifest = JSON.parse(
+      fs.readFileSync(manifestFile, "utf8"),
+    ) as JsonRecord;
+    const routes = JSON.parse(
+      fs.readFileSync(routesFile, "utf8"),
+    ) as JsonRecord;
+    sourceCache = {
+      repositories: Array.isArray(manifest.repositories)
+        ? manifest.repositories
+        : [],
+      files: Array.isArray(routes.files) ? routes.files : [],
+    };
+  }
+  return sourceCache;
+}
+
+function stringValue(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function numericValue(value: unknown): number {
+  return typeof value === "number" && Number.isFinite(value) ? value : 0;
+}
+
+function encodePath(value: string): string {
+  return value
+    .split("/")
+    .map((part) => encodeURIComponent(part))
+    .join("/");
+}
+
+function encodeSegment(value: string): string {
+  return encodeURIComponent(value);
+}
+
+function hasUnsafePathPart(value: string): boolean {
+  return value
+    .split("/")
+    .some((part) => !part || part === "." || part === "..");
+}
+
+export function githubRawUrlFromOrigin(origin: string): string {
+  const match = origin.match(/^github:\/\/([^/]+)\/([^@/]+)@([^/]+)\/(.+)$/);
+  if (!match) return "";
+  const [, organization, repository, revision, filePath] = match;
+  if (
+    !organization ||
+    !repository ||
+    !revision ||
+    hasUnsafePathPart(filePath) ||
+    [organization, repository, revision].some((value) => value.includes(".."))
+  ) {
+    return "";
+  }
+  return `${rawGithubOrigin}/${encodeSegment(organization)}/${encodeSegment(repository)}/${encodeSegment(revision)}/${encodePath(filePath)}`;
+}
+
+export function encodeSourceToken(value: string): string {
+  return Buffer.from(value, "utf8").toString("base64url");
+}
+
+export function decodeSourceToken(value: string): string {
+  try {
+    return Buffer.from(value, "base64url").toString("utf8");
+  } catch {
+    return "";
+  }
+}
+
+function validProxyNode(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return (
+      url.protocol === "https:" &&
+      Boolean(url.hostname) &&
+      !url.username &&
+      !url.password &&
+      !url.port &&
+      url.pathname === "/" &&
+      !url.search &&
+      !url.hash
+    );
+  } catch {
+    return false;
+  }
+}
+
+export function proxyNodes(): string[] {
+  try {
+    const configured = JSON.parse(
+      fs.readFileSync(proxyConfigFile, "utf8"),
+    ) as JsonRecord;
+    const nodes = Array.isArray(configured.nodes)
+      ? configured.nodes.filter(
+          (node): node is string =>
+            typeof node === "string" && validProxyNode(node),
+        )
+      : [];
+    if (nodes.length) return Array.from(new Set(nodes));
+  } catch {
+    // 配置缺失时使用保守默认节点。
+  }
+  return DEFAULT_PROXY_NODES;
+}
+
+export function buildGithubProxyUrl(
+  proxy: string,
+  githubRawUrl: string,
+): string {
+  return `${proxy.replace(/\/$/, "")}/${githubRawUrl}`;
+}
+
+export function buildSiteDownloadUrl(
+  repoId: string,
+  filePath: string,
+  githubRawUrl = "",
+): string {
+  const source = githubRawUrl
+    ? `?source=${encodeURIComponent(encodeSourceToken(githubRawUrl))}`
+    : "";
+  return `/gh/${encodeSegment(repoId)}/${encodePath(filePath)}${source}`;
+}
+
+function repositoryName(
+  repository: JsonRecord | undefined,
+  repoId: string,
+): string {
+  return (
+    stringValue(repository?.display_name) ||
+    stringValue(repository?.name) ||
+    repoId
+  );
+}
+
+export function repositoryFileEntries(repoId?: string): RepositoryFileEntry[] {
+  if (!entriesCache) {
+    const { repositories, files } = readSource();
+    const repositoryById = new Map(
+      repositories.map((repository) => [
+        stringValue(repository.repo_id),
+        repository,
+      ]),
+    );
+    entriesCache = files
+      .map((file) => {
+        const id = stringValue(file.repo_id);
+        const filePath = stringValue(file.path);
+        if (!id || !filePath || hasUnsafePathPart(filePath)) return undefined;
+        const origin = stringValue(file.origin);
+        const githubRawUrl = githubRawUrlFromOrigin(origin);
+        return {
+          repoId: id,
+          repoName: repositoryName(repositoryById.get(id), id),
+          path: filePath,
+          name: filePath.split("/").pop() || filePath,
+          routeKind: stringValue(file.route_kind) || "其他资料",
+          courseCodes: Array.isArray(file.course_codes)
+            ? file.course_codes.map(stringValue).filter(Boolean)
+            : [],
+          size: numericValue(file.size),
+          origin,
+          githubRawUrl,
+          githubProxyUrls: githubRawUrl
+            ? proxyNodes().map((node) =>
+                buildGithubProxyUrl(node, githubRawUrl),
+              )
+            : [],
+          siteDownloadUrl: githubRawUrl
+            ? buildSiteDownloadUrl(id, filePath, githubRawUrl)
+            : "",
+        } satisfies RepositoryFileEntry;
+      })
+      .filter((entry): entry is RepositoryFileEntry => Boolean(entry));
+  }
+  return repoId
+    ? entriesCache.filter((entry) => entry.repoId === repoId)
+    : entriesCache;
+}
+
+export function repositoryFilesForCourse(
+  courseCode: string,
+  repoIds: Iterable<string>,
+): RepositoryFileEntry[] {
+  const repositories = new Set(repoIds);
+  return repositoryFileEntries().filter(
+    (entry) =>
+      repositories.has(entry.repoId) && entry.courseCodes.includes(courseCode),
+  );
+}
+
+export function repositoryFileTree(repoId: string): RepositoryFileTreeNode {
+  if (!treeCache) treeCache = new Map();
+  const cached = treeCache.get(repoId);
+  if (cached) return cached;
+  const root: RepositoryFileTreeNode = {
+    name: repoId,
+    path: "",
+    isDirectory: true,
+    size: 0,
+    children: [],
+  };
+  for (const file of repositoryFileEntries(repoId)) {
+    let parent = root;
+    const parts = file.path.split("/");
+    parts.forEach((part, index) => {
+      const childPath = parts.slice(0, index + 1).join("/");
+      let child = parent.children.find((candidate) => candidate.name === part);
+      if (!child) {
+        child = {
+          name: part,
+          path: childPath,
+          isDirectory: index < parts.length - 1,
+          size: 0,
+          children: [],
+        };
+        parent.children.push(child);
+      }
+      child.size += file.size;
+      if (index === parts.length - 1) child.file = file;
+      parent = child;
+    });
+  }
+  sortTree(root);
+  treeCache.set(repoId, root);
+  return root;
+}
+
+function sortTree(node: RepositoryFileTreeNode): void {
+  node.children.sort(
+    (left, right) =>
+      Number(right.isDirectory) - Number(left.isDirectory) ||
+      left.name.localeCompare(right.name, "zh-CN"),
+  );
+  for (const child of node.children) {
+    if (child.isDirectory) sortTree(child);
+  }
+}
+
+export function repositoryFileStats(repoId: string): {
+  count: number;
+  bytes: number;
+  categories: Array<{ name: string; count: number }>;
+} {
+  const entries = repositoryFileEntries(repoId);
+  const categories = new Map<string, number>();
+  for (const entry of entries) {
+    categories.set(entry.routeKind, (categories.get(entry.routeKind) || 0) + 1);
+  }
+  return {
+    count: entries.length,
+    bytes: entries.reduce((sum, entry) => sum + entry.size, 0),
+    categories: Array.from(categories, ([name, count]) => ({
+      name,
+      count,
+    })).sort(
+      (left, right) =>
+        right.count - left.count ||
+        left.name.localeCompare(right.name, "zh-CN"),
+    ),
+  };
+}
+
+export function repositoryResourceSourceFiles(): string[] {
+  return [manifestFile, routesFile, proxyConfigFile];
+}

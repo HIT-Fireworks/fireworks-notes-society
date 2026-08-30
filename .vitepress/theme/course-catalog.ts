@@ -1,5 +1,9 @@
 import fs from "node:fs";
 import path from "node:path";
+import {
+  repositoryFileEntries,
+  type RepositoryFileEntry,
+} from "./repository-resources";
 
 export interface CourseCatalogPlan {
   id: string;
@@ -61,6 +65,7 @@ export interface CourseDetailData extends CourseCatalogCourse {
     bytes: number;
     categories: Array<{ name: string; count: number }>;
   }>;
+  files?: RepositoryFileEntry[];
 }
 
 type JsonObject = Record<string, unknown>;
@@ -72,13 +77,8 @@ interface ManifestData {
   repositories: JsonObject[];
 }
 
-interface RoutesData {
-  files: JsonObject[];
-}
-
 interface CatalogSource {
   manifest: ManifestData;
-  routes: RoutesData;
 }
 
 let sourceCache: CatalogSource | undefined;
@@ -100,7 +100,6 @@ function source(): CatalogSource {
   if (!sourceCache) {
     sourceCache = {
       manifest: readJson<ManifestData>(manifestPath),
-      routes: readJson<RoutesData>(routesPath),
     };
   }
   return sourceCache;
@@ -133,8 +132,7 @@ export function courseSlug(code: string): string {
 
 function semesterOrder(value: string): number {
   const yearMatch = value.match(/第([一二三四五六七八九十]+)学年/);
-  const chinese = yearMatch?.[1] ?? "";
-  const digits: Record<string, number> = {
+  const yearMap: Record<string, number> = {
     一: 1,
     二: 2,
     三: 3,
@@ -146,10 +144,7 @@ function semesterOrder(value: string): number {
     九: 9,
     十: 10,
   };
-  let year = 99;
-  if (chinese) {
-    year = chinese === "十" ? 10 : (digits[chinese] ?? 99);
-  }
+  const year = yearMatch ? (yearMap[yearMatch[1]] ?? 99) : 99;
   const season = value.includes("秋")
     ? 0
     : value.includes("春")
@@ -186,7 +181,7 @@ function aggregate(): {
   index: CourseCatalogIndex;
   details: Map<string, CourseDetailData>;
 } {
-  const { manifest, routes } = source();
+  const { manifest } = source();
   const plansById = new Map<string, CourseCatalogPlan>();
   for (const raw of manifest.curriculum_plans) {
     const id = text(raw.plan_id);
@@ -214,34 +209,31 @@ function aggregate(): {
     if (id) repositoryById.set(id, repository);
   }
 
-  const filesByCode = new Map<string, JsonObject[]>();
-  const filesByRepo = new Map<string, JsonObject[]>();
-  for (const file of routes.files) {
-    const repoId = text(file.repo_id);
+  const filesByCode = new Map<string, RepositoryFileEntry[]>();
+  const filesByRepo = new Map<string, RepositoryFileEntry[]>();
+  for (const file of repositoryFileEntries()) {
+    const repoId = file.repoId;
     if (repoId) {
       const current = filesByRepo.get(repoId) ?? [];
       current.push(file);
       filesByRepo.set(repoId, current);
     }
-    for (const code of strings(file.course_codes)) {
+    for (const code of file.courseCodes) {
       const current = filesByCode.get(code) ?? [];
       current.push(file);
       filesByCode.set(code, current);
     }
   }
 
-  const occurrenceRows: CourseCatalogOccurrence[] = [];
+  const occurrences: CourseCatalogOccurrence[] = [];
   const recordsByCode = new Map<string, JsonObject[]>();
   for (const record of manifest.curriculum_records) {
     const planId = text(record.source_plan);
     const code = text(record.course_code);
     const term = text(record.recommended_year_semester) || "未标注学期";
-    if (planId) {
-      const plan = plansById.get(planId);
-      if (plan) plan.terms.push(term);
-    }
+    if (planId) plansById.get(planId)?.terms.push(term);
     if (!code) continue;
-    occurrenceRows.push({
+    occurrences.push({
       planId,
       courseCode: code,
       term,
@@ -256,84 +248,74 @@ function aggregate(): {
     current.push(record);
     recordsByCode.set(code, current);
   }
-
   for (const plan of plansById.values()) plan.terms = sortTerms(plan.terms);
 
-  const allCodes = new Set<string>([
+  const codes = new Set([
     ...descriptorByCode.keys(),
     ...recordsByCode.keys(),
     ...filesByCode.keys(),
   ]);
   const courses: CourseCatalogCourse[] = [];
   const details = new Map<string, CourseDetailData>();
-
-  for (const code of allCodes) {
+  for (const code of codes) {
     const descriptor = descriptorByCode.get(code);
     const records = recordsByCode.get(code) ?? [];
     const files = filesByCode.get(code) ?? [];
     const repoIds = unique([
       text(descriptor?.repo_id),
       ...records.map((record) => text(record.repo_id)),
-      ...files.map((file) => text(file.repo_id)),
+      ...files.map((file) => file.repoId),
     ]);
-    const repositories = repoIds
-      .map((repoId) => {
-        const repository = repositoryById.get(repoId);
-        const repoFiles = (filesByRepo.get(repoId) ?? []).filter((file) =>
-          strings(file.course_codes).includes(code),
-        );
-        const categoryCounts = new Map<string, number>();
-        for (const file of repoFiles) {
-          const category = fileCategory(text(file.route_kind), text(file.path));
-          categoryCounts.set(category, (categoryCounts.get(category) ?? 0) + 1);
-        }
-        return {
-          repoId,
-          displayName: text(repository?.display_name) || repoId,
-          githubUrl: `https://github.com/HIT-Fireworks/${repoId}`,
-          fileCount: repoFiles.length,
-          bytes: repoFiles.reduce(
-            (sum, file) => sum + (number(file.size) ?? 0),
-            0,
-          ),
-          categories: Array.from(categoryCounts, ([name, count]) => ({
-            name,
-            count,
-          })).sort(
-            (a, b) =>
-              b.count - a.count || a.name.localeCompare(b.name, "zh-CN"),
-          ),
-        };
-      })
-      .filter((repository) => repository.repoId);
-    const repositoryAliases = repoIds.flatMap((repoId) =>
-      strings(repositoryById.get(repoId)?.aliases),
-    );
+    const repositoryFiles = files;
+    const repositories = repoIds.map((repoId) => {
+      const repository = repositoryById.get(repoId);
+      const filesForRepository = (filesByRepo.get(repoId) ?? []).filter(
+        (file) => file.courseCodes.includes(code),
+      );
+      const categoryCounts = new Map<string, number>();
+      for (const file of filesForRepository) {
+        const category = fileCategory(file.routeKind, file.path);
+        categoryCounts.set(category, (categoryCounts.get(category) ?? 0) + 1);
+      }
+      return {
+        repoId,
+        displayName: text(repository?.display_name) || repoId,
+        githubUrl: `https://github.com/HIT-Fireworks/${repoId}`,
+        fileCount: filesForRepository.length,
+        bytes: filesForRepository.reduce(
+          (sum, file) => sum + file.size,
+          0,
+        ),
+        categories: Array.from(categoryCounts, ([name, count]) => ({
+          name,
+          count,
+        })).sort(
+          (a, b) => b.count - a.count || a.name.localeCompare(b.name, "zh-CN"),
+        ),
+      };
+    });
     const names = unique([
       text(descriptor?.course_name),
       ...records.map((record) => text(record.course_name)),
     ]);
-    const plans = records
-      .map((record) => {
-        const plan = plansById.get(text(record.source_plan));
-        return plan
-          ? {
-              school: plan.school,
-              major: plan.majorName,
-              term: text(record.recommended_year_semester) || "未标注学期",
-            }
-          : undefined;
-      })
-      .filter(
-        (value): value is { school: string; major: string; term: string } =>
-          Boolean(value),
-      );
     const majors = Array.from(
       new Map(
-        plans.map((value) => [
-          `${value.school}\0${value.major}\0${value.term}`,
-          value,
-        ]),
+        records
+          .map((record) => {
+            const plan = plansById.get(text(record.source_plan));
+            return plan
+              ? {
+                  school: plan.school,
+                  major: plan.majorName,
+                  term: text(record.recommended_year_semester) || "未标注学期",
+                }
+              : undefined;
+          })
+          .filter(
+            (item): item is { school: string; major: string; term: string } =>
+              Boolean(item),
+          )
+          .map((item) => [`${item.school}\0${item.major}\0${item.term}`, item]),
       ).values(),
     ).sort(
       (a, b) =>
@@ -344,15 +326,20 @@ function aggregate(): {
     const summary: CourseCatalogCourse = {
       code,
       name: names[0] || code,
-      aliases: unique([...names.slice(1), ...repositoryAliases]),
+      aliases: unique([
+        ...names.slice(1),
+        ...repoIds.flatMap((repoId) =>
+          strings(repositoryById.get(repoId)?.aliases),
+        ),
+      ]),
       offeringColleges: unique(
         records.map((record) => text(record.offering_college)),
       ),
       schools: unique(majors.map((item) => item.school)),
       terms: sortTerms(majors.map((item) => item.term)),
-      hasMaterial: files.length > 0,
-      fileCount: files.length,
-      bytes: files.reduce((sum, file) => sum + (number(file.size) ?? 0), 0),
+      hasMaterial: repositoryFiles.length > 0,
+      fileCount: repositoryFiles.length,
+      bytes: repositoryFiles.reduce((sum, file) => sum + file.size, 0),
       repoId: repoIds[0] || undefined,
     };
     courses.push(summary);
@@ -373,9 +360,9 @@ function aggregate(): {
       ),
       majors,
       repositories,
+      files: repositoryFiles,
     });
   }
-
   courses.sort(
     (a, b) =>
       Number(b.hasMaterial) - Number(a.hasMaterial) ||
@@ -388,20 +375,22 @@ function aggregate(): {
       a.school.localeCompare(b.school, "zh-CN") ||
       a.majorName.localeCompare(b.majorName, "zh-CN"),
   );
-  const index: CourseCatalogIndex = {
-    years: unique(plans.map((plan) => plan.year)).sort((a, b) =>
-      b.localeCompare(a),
-    ),
-    schools: unique(plans.map((plan) => plan.school)),
-    offeringColleges: unique(
-      courses.flatMap((course) => course.offeringColleges),
-    ),
-    terms: sortTerms(occurrenceRows.map((record) => record.term)),
-    plans,
-    courses,
-    occurrences: occurrenceRows,
+  return {
+    index: {
+      years: unique(plans.map((plan) => plan.year)).sort((a, b) =>
+        b.localeCompare(a),
+      ),
+      schools: unique(plans.map((plan) => plan.school)),
+      offeringColleges: unique(
+        courses.flatMap((course) => course.offeringColleges),
+      ),
+      terms: sortTerms(occurrences.map((record) => record.term)),
+      plans,
+      courses,
+      occurrences,
+    },
+    details,
   };
-  return { index, details };
 }
 
 export function getCourseCatalogIndex(): CourseCatalogIndex {

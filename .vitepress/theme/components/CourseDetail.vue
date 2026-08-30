@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import type { CourseDetailData } from "../course-catalog";
+import type { RepositoryFileEntry } from "../repository-resources";
+import ResourceFileList from "./ResourceFileList.vue";
 
 const { course } = defineProps<{ course: CourseDetailData }>();
+const resourceFiles: RepositoryFileEntry[] = course.files ?? [];
 
 const readableTerm = (term: string) =>
   term
@@ -161,7 +164,14 @@ const readableBytes = (bytes: number) => {
           </a>
         </article>
       </div>
-      <div v-else class="contribution-callout">
+      <div v-if="resourceFiles.length" class="resource-files-panel">
+        <h3>文件列表</h3>
+        <p class="resource-files-note">
+          文件名和目录来自当前仓库快照；点击“站内加速下载”会使用本站固定地址。
+        </p>
+        <ResourceFileList :files="resourceFiles" />
+      </div>
+      <div v-else-if="!course.repositories.length" class="contribution-callout">
         <div>
           <strong>这门课还没有资料</strong>
           <p>如果你有笔记、试卷、作业或经验，欢迎成为第一个贡献者。</p>
