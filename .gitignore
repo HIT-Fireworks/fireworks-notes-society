@@ -2,3 +2,6 @@
 /.vitepress/dist
 /node_modules/
 /.worktrees/
+/.workspaces/
+**/__pycache__/
+/repository-tui/target/

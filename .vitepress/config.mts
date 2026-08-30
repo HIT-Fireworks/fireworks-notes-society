@@ -30,6 +30,7 @@ export default defineConfig({
 
     nav: [
       { text: "主页", link: "/" },
+      { text: "课程中心", link: "/courses/", activeMatch: "/courses/" },
       { text: "笔记", link: "/lessons", activeMatch: "/lessons" },
       { text: "友站和其他资源", link: "/friends", activeMatch: "/friends" },
     ],
@@ -45,6 +46,8 @@ export default defineConfig({
           "docs",
           "README.md",
           "CONTRIBUTING.md",
+          "team.md",
+          "courses",
         ],
       },
     ]),

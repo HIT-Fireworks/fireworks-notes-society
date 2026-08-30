@@ -7,6 +7,7 @@
     "docs:dev": "bun --bun vitepress dev",
     "docs:build": "bun --bun vitepress build",
     "docs:preview": "bun --bun vitepress preview",
+    "test:courses": "bun test scripts/course-catalog.test.mts",
     "update-campus": "bun scripts/update-campus-url.mjs",
     "audit:openlist": "bun scripts/audit-openlist-structure.mjs",
     "audit:openlist:self-test": "bun scripts/audit-openlist-structure.mjs --self-test",

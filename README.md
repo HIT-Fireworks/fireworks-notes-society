@@ -37,15 +37,34 @@ fireworks-notes-society/
 └── team.md              # 团队成员
 ```
 
-课程与资料分类目录以手写 Markdown 作为站点入口，实际覆盖范围以仓库内容为准，可结合审计报告核对覆盖差距。
+## 课程中心
 
-## 课程入口与资料目录
+网站新增 `/courses/` 课程中心，数据由构建时深模块统一聚合，不会让浏览器直接加载完整管理快照。
 
-站点内的课程入口以仓库中的手写 Markdown 为准。VitePress 根据这些 Markdown 文件生成页面、侧边栏、标题和站内搜索内容。
+课程中心提供两种查看模式：
 
-OpenList 的 `/Fireworks` 目录是资料下载目录参考。课程页中的 `<OList path="..." />` 必须指向真实存在的 OpenList 目录，但 OpenList 不会在构建时自动生成站点页面。
+1. **我的培养方案**：按年级、培养学院、专业逐级选择，再按学年和学期浏览课程，使用方式参考 HOA；
+2. **直接找课程**：按课程名称、课程代码、别名、开课学院、培养学院、推荐学期和资料状态组合检索。
 
-当 OpenList 新增或重排目录时，维护者需要手动新增、移动或更新 Markdown 页面，然后运行 `bun run audit:openlist` 检查 `<OList path>` 是否有效。
+每个课程代码都有稳定的 `/courses/<课程代码>` 页面，展示课程基本信息、覆盖专业与推荐学期、资料数量/分类/容量及 GitHub 课程仓库入口。没有资料的课程也保留在目录中，方便后续贡献。
+
+当前构建数据包含 211 个培养方案、2,618 个课程代码、8,509 条有代码课程记录，其中 323 门课程已有资料。`/lessons` 继续保留原有 OpenList 资料下载入口。
+
+课程目录维护：
+
+- 权威数据：`data/repository-manifest.no-collection.v4.json` 与 `config/repository-file-routes.v4.json`；
+- 聚合逻辑：`.vitepress/theme/course-catalog.ts`；
+- 中心组件：`.vitepress/theme/components/CourseExplorer.vue`；
+- 课程详情组件：`.vitepress/theme/components/CourseDetail.vue`；
+- 动态页面模板：`courses/[code].md` 与 `courses/[code].paths.ts`；
+- 数据契约测试：`bun run test:courses`；
+- 完整构建：`bun run docs:build`。
+
+课程组件采用页面局部加载，目录数据不会进入所有站点页面的公共主题资源。构建会为当前全部课程生成静态详情页；数据更新后重新构建即可同步页面。
+
+## 资料入口与旧页面
+
+`/lessons` 仍是原有资料下载入口，课程中心负责课程发现和课程元数据展示，两者互补，不删除既有手写课程页面。
 
 ## 🛠️ 技术栈
 
@@ -53,6 +72,39 @@ OpenList 的 `/Fireworks` 目录是资料下载目录参考。课程页中的 `<
 - **样式**：[Tailwind CSS](https://tailwindcss.com/) + [PrimeVue](https://primevue.org/)
 - **部署**：GitHub Pages + GitHub Actions 自动化部署
 - **包管理 / 运行时**：Bun
+
+### 本地仓库状态 TUI
+
+仓库状态 TUI 使用 Rust 的 `ratatui` 与 `crossterm`。默认读取 116 个 production 仓库的课程代码原子化 canonical `data/repository-manifest.json`、`config/repository-topology.v3.json`、`config/repository-file-routes.v3.json`，以及课程代码原子化迁移执行与验证报告。界面中的“检查课程代码原子计划”和“核验课程代码原子内容”都是只读操作；不会从 TUI 发起远端写入或删除。
+
+```bash
+# 构建并运行全屏 TUI
+cargo run --manifest-path repository-tui/Cargo.toml -- --root .
+
+# 非交互检查 canonical manifest、v3 topology/routes 与原子化终态
+cargo run --manifest-path repository-tui/Cargo.toml -- --check --root .
+
+# 编译与单元测试
+cargo check --manifest-path repository-tui/Cargo.toml
+cargo test --manifest-path repository-tui/Cargo.toml
+```
+
+兼容入口 `python scripts/repository_management.py tui` 只负责定位并启动上述 Rust 二进制；TUI 本身不执行 Python 菜单或课程处理逻辑。
+
+课程代码原子化收敛已完成：远端精确包含 116 个 production 仓库，以及固定保留的 `fireworks-attachments` 和 `fireworks-notes-society`，合计 118 个仓库。83 个退出仓库已按冻结的 `node_id`、commit 和 tree 逐项删除并确认 404；3,857 个文件（9,159,380,782 B）、76 个操作目标仓和 13,309 个 Registry 受控文件均已复核。
+
+新的仓库模型以培养方案中的课程代码为不可拆分原子；同一冻结资料文件通过多个 `route_keys` 连接的课程代码形成不可拆分共享资料连通分量。历史 ResourceGroup 仅保留为导航、审计和迁移血缘证据，不再约束物理仓库演进。无资料课程代码按唯一开课单位合并，课程类别只作为审计标签。
+
+本地 canonical 状态：
+
+- `data/repository-manifest.json`：116 仓课程代码原子化 production manifest。
+- `config/repository-topology.v3.json`：116 仓显式拓扑。
+- `config/repository-file-routes.v3.json`：3,857 条文件路由与 2,618 条课程代码路由。
+- `data/repository-manifest.resource-aware-192.v2.json`：上一轮 192 仓资料感知历史快照。
+- `data/repository-manifest.legacy-255.v1.json`：更早的 255 仓历史快照。
+- `data/course-code-atomic-repository-convergence-verification.v1.json`：118 仓远端终态验证证据。
+
+旧 `execute-final-repository-convergence.py`、资料感知上一轮执行器、旧迁移报告和旧清理报告均作为历史执行证据保留，不再作为默认生产入口。
 
 ## 🚀 快速开始
 
@@ -74,6 +126,10 @@ bun install
 bun run docs:dev
 
 # 构建生产版本
+# 验证课程目录数据契约
+bun run test:courses
+
+# 构建生产版本（同时生成全部课程详情页）
 bun run docs:build
 
 # 预览构建结果
