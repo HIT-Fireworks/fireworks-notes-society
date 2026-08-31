@@ -1,10 +1,19 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
-import { data as catalog } from "./course-catalog.data.mjs";
+import Button from "primevue/button";
+import IconField from "primevue/iconfield";
+import InputIcon from "primevue/inputicon";
+import InputText from "primevue/inputtext";
+import Select from "primevue/select";
+import SelectButton from "primevue/selectbutton";
+import Tag from "primevue/tag";
 import type {
   CourseCatalogCourse,
+  CourseCatalogIndex,
   CourseCatalogOccurrence,
 } from "../course-catalog";
+
+const { catalog } = defineProps<{ catalog: CourseCatalogIndex }>();
 
 type ViewMode = "plan" | "search";
 type MaterialFilter = "all" | "available" | "missing";
@@ -13,6 +22,34 @@ interface PlanCourseCard {
   course: CourseCatalogCourse;
   occurrence: CourseCatalogOccurrence;
 }
+const modeOptions = [
+  {
+    value: "plan",
+    label: "我的培养方案",
+    description: "按年级、学院、专业和学期浏览",
+    icon: "pi pi-sitemap",
+  },
+  {
+    value: "search",
+    label: "直接找课程",
+    description: "按名称、代码、学院和资料状态检索",
+    icon: "pi pi-search",
+  },
+] satisfies Array<{
+  value: ViewMode;
+  label: string;
+  description: string;
+  icon: string;
+}>;
+const yearOptions = catalog.years.map((year) => ({
+  label: `${year} 级`,
+  value: year,
+}));
+const materialOptions = [
+  { label: "全部课程", value: "all" },
+  { label: "已有资料", value: "available" },
+  { label: "待补充资料", value: "missing" },
+] satisfies Array<{ label: string; value: MaterialFilter }>;
 
 const mode = ref<ViewMode>("plan");
 const selectedYear = ref(catalog.years[0] ?? "");
@@ -39,6 +76,10 @@ const schoolOptions = computed(() =>
     ),
   ).sort((a, b) => a.localeCompare(b, "zh-CN")),
 );
+const schoolSelectOptions = computed(() =>
+  schoolOptions.value.map((school) => ({ label: school, value: school })),
+);
+
 
 const majorOptions = computed(() =>
   catalog.plans
@@ -49,6 +90,13 @@ const majorOptions = computed(() =>
     )
     .sort((a, b) => a.majorName.localeCompare(b.majorName, "zh-CN")),
 );
+const majorSelectOptions = computed(() =>
+  majorOptions.value.map((plan) => ({
+    label: plan.majorName,
+    value: plan.id,
+  })),
+);
+
 
 const selectedPlan = computed(() =>
   catalog.plans.find((plan) => plan.id === selectedPlanId.value),
@@ -160,6 +208,21 @@ const readableBytes = (bytes: number) => {
   if (bytes >= 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${bytes} B`;
 };
+const offeringCollegeOptions = computed(() =>
+  catalog.offeringColleges.map((college) => ({
+    label: college,
+    value: college,
+  })),
+);
+const trainingSchoolOptions = computed(() =>
+  catalog.schools.map((school) => ({ label: school, value: school })),
+);
+const searchTermOptions = computed(() =>
+  catalog.terms.map((term) => ({
+    label: readableTerm(term),
+    value: term,
+  })),
+);
 </script>
 
 <template>
@@ -190,32 +253,26 @@ const readableBytes = (bytes: number) => {
       </dl>
     </section>
 
-    <div class="mode-switch" role="tablist" aria-label="课程查看模式">
-      <button
-        :class="{ active: mode === 'plan' }"
-        role="tab"
-        :aria-selected="mode === 'plan'"
-        @click="mode = 'plan'"
-      >
-        <span class="mode-icon">⌘</span>
-        <span
-          ><strong>我的培养方案</strong
-          ><small>按年级、学院、专业和学期浏览</small></span
-        >
-      </button>
-      <button
-        :class="{ active: mode === 'search' }"
-        role="tab"
-        :aria-selected="mode === 'search'"
-        @click="mode = 'search'"
-      >
-        <span class="mode-icon">⌕</span>
-        <span
-          ><strong>直接找课程</strong
-          ><small>按名称、代码、学院和资料状态检索</small></span
-        >
-      </button>
-    </div>
+    <SelectButton
+      v-model="mode"
+      class="mode-switch"
+      :options="modeOptions"
+      option-label="label"
+      option-value="value"
+      :allow-empty="false"
+      aria-label="课程查看模式"
+    >
+      <template #option="{ option }">
+        <span class="mode-option">
+          <i :class="['mode-icon', option.icon]" aria-hidden="true" />
+          <span>
+            <strong>{{ option.label }}</strong>
+            <small>{{ option.description }}</small>
+          </span>
+        </span>
+      </template>
+    </SelectButton>
+
 
     <section v-if="mode === 'plan'" class="catalog-panel plan-panel">
       <header class="panel-heading">
@@ -228,39 +285,41 @@ const readableBytes = (bytes: number) => {
       <div class="selector-grid">
         <label>
           <span>年级 / 方案年份</span>
-          <select v-model="selectedYear">
-            <option v-for="year in catalog.years" :key="year" :value="year">
-              {{ year }} 级
-            </option>
-          </select>
+          <Select
+            v-model="selectedYear"
+            :options="yearOptions"
+            option-label="label"
+            option-value="value"
+            fluid
+          />
         </label>
         <label>
           <span>培养学院</span>
-          <select v-model="selectedSchool">
-            <option value="">请选择学院</option>
-            <option
-              v-for="school in schoolOptions"
-              :key="school"
-              :value="school"
-            >
-              {{ school }}
-            </option>
-          </select>
+          <Select
+            v-model="selectedSchool"
+            :options="schoolSelectOptions"
+            option-label="label"
+            option-value="value"
+            placeholder="请选择学院"
+            filter
+            fluid
+          />
         </label>
         <label>
           <span>专业</span>
-          <select v-model="selectedPlanId" :disabled="!selectedSchool">
-            <option value="">请选择专业</option>
-            <option
-              v-for="plan in majorOptions"
-              :key="plan.id"
-              :value="plan.id"
-            >
-              {{ plan.majorName }}
-            </option>
-          </select>
+          <Select
+            v-model="selectedPlanId"
+            :options="majorSelectOptions"
+            option-label="label"
+            option-value="value"
+            placeholder="请选择专业"
+            :disabled="!selectedSchool"
+            filter
+            fluid
+          />
         </label>
       </div>
+
 
       <template v-if="selectedPlan">
         <div class="term-toolbar">
@@ -271,23 +330,23 @@ const readableBytes = (bytes: number) => {
               <p>{{ selectedPlan.majorName }} · {{ selectedPlan.version }}</p>
             </div>
           </div>
-          <div class="term-chips" role="list" aria-label="选择学期">
-            <button
-              :class="{ active: selectedTerm === 'all' }"
-              @click="selectedTerm = 'all'"
-            >
-              全部学期
-            </button>
-            <button
-              v-for="term in selectedPlan.terms"
-              :key="term"
-              :class="{ active: selectedTerm === term }"
-              @click="selectedTerm = term"
-            >
-              {{ readableTerm(term) }}
-            </button>
-          </div>
+          <SelectButton
+            v-model="selectedTerm"
+            class="term-chips"
+            :options="[
+              { label: '全部学期', value: 'all' },
+              ...selectedPlan.terms.map((term) => ({
+                label: readableTerm(term),
+                value: term,
+              })),
+            ]"
+            option-label="label"
+            option-value="value"
+            :allow-empty="false"
+            aria-label="选择学期"
+          />
         </div>
+
 
         <div class="term-groups">
           <section
@@ -311,14 +370,11 @@ const readableBytes = (bytes: number) => {
               >
                 <div class="card-topline">
                   <span class="course-code">{{ item.course.code }}</span>
-                  <span
-                    :class="[
-                      'material-state',
-                      item.course.hasMaterial ? 'ready' : 'empty',
-                    ]"
-                  >
-                    {{ item.course.hasMaterial ? "有资料" : "待补充" }}
-                  </span>
+                  <Tag
+                    :value="item.course.hasMaterial ? '有资料' : '待补充'"
+                    :severity="item.course.hasMaterial ? 'success' : 'secondary'"
+                    rounded
+                  />
                 </div>
                 <h4>{{ item.course.name }}</h4>
                 <p class="course-meta">
@@ -366,65 +422,69 @@ const readableBytes = (bytes: number) => {
         </div>
         <p>多个条件可以组合；全部留空时展示完整目录。</p>
       </header>
-      <div class="search-box">
-        <span aria-hidden="true">⌕</span>
-        <input
+      <IconField class="search-box">
+        <InputIcon class="pi pi-search" />
+        <InputText
           v-model="keyword"
           type="search"
           placeholder="输入课程名称、课程代码或别名"
+          fluid
         />
-      </div>
+      </IconField>
       <div class="filter-grid">
         <label>
           <span>开课学院</span>
-          <select v-model="offeringCollege">
-            <option value="">全部开课学院</option>
-            <option
-              v-for="college in catalog.offeringColleges"
-              :key="college"
-              :value="college"
-            >
-              {{ college }}
-            </option>
-          </select>
+          <Select
+            v-model="offeringCollege"
+            :options="offeringCollegeOptions"
+            option-label="label"
+            option-value="value"
+            placeholder="全部开课学院"
+            filter
+            fluid
+          />
         </label>
         <label>
           <span>培养学院</span>
-          <select v-model="trainingSchool">
-            <option value="">全部培养学院</option>
-            <option
-              v-for="school in catalog.schools"
-              :key="school"
-              :value="school"
-            >
-              {{ school }}
-            </option>
-          </select>
+          <Select
+            v-model="trainingSchool"
+            :options="trainingSchoolOptions"
+            option-label="label"
+            option-value="value"
+            placeholder="全部培养学院"
+            filter
+            fluid
+          />
         </label>
         <label>
           <span>推荐学期</span>
-          <select v-model="searchTerm">
-            <option value="">全部学期</option>
-            <option v-for="term in catalog.terms" :key="term" :value="term">
-              {{ readableTerm(term) }}
-            </option>
-          </select>
+          <Select
+            v-model="searchTerm"
+            :options="searchTermOptions"
+            option-label="label"
+            option-value="value"
+            placeholder="全部学期"
+            fluid
+          />
         </label>
         <label>
           <span>资料状态</span>
-          <select v-model="materialFilter">
-            <option value="all">全部课程</option>
-            <option value="available">已有资料</option>
-            <option value="missing">待补充资料</option>
-          </select>
+          <Select
+            v-model="materialFilter"
+            :options="materialOptions"
+            option-label="label"
+            option-value="value"
+            fluid
+          />
         </label>
       </div>
+
 
       <div class="result-heading">
         <div>
           <strong>{{ filteredCourses.length }}</strong> 门课程符合条件
         </div>
-        <button
+        <Button
           v-if="
             keyword ||
             offeringCollege ||
@@ -432,6 +492,12 @@ const readableBytes = (bytes: number) => {
             searchTerm ||
             materialFilter !== 'all'
           "
+          label="清空筛选"
+          icon="pi pi-filter-slash"
+          severity="secondary"
+          variant="outlined"
+          rounded
+          size="small"
           @click="
             keyword = '';
             offeringCollege = '';
@@ -439,9 +505,8 @@ const readableBytes = (bytes: number) => {
             searchTerm = '';
             materialFilter = 'all';
           "
-        >
-          清空筛选
-        </button>
+        />
+
       </div>
 
       <div v-if="visibleCourses.length" class="course-grid search-results">
@@ -453,14 +518,11 @@ const readableBytes = (bytes: number) => {
         >
           <div class="card-topline">
             <span class="course-code">{{ course.code }}</span>
-            <span
-              :class="[
-                'material-state',
-                course.hasMaterial ? 'ready' : 'empty',
-              ]"
-            >
-              {{ course.hasMaterial ? "有资料" : "待补充" }}
-            </span>
+            <Tag
+              :value="course.hasMaterial ? '有资料' : '待补充'"
+              :severity="course.hasMaterial ? 'success' : 'secondary'"
+              rounded
+            />
           </div>
           <h3>{{ course.name }}</h3>
           <p class="course-college">
@@ -483,13 +545,15 @@ const readableBytes = (bytes: number) => {
         <span>○</span><strong>没有找到符合条件的课程</strong>
         <p>试试减少筛选条件，或只输入课程名中的一部分。</p>
       </div>
-      <button
+      <Button
         v-if="visibleCourses.length < filteredCourses.length"
         class="load-more"
+        label="再显示 48 门"
+        icon="pi pi-plus"
+        variant="outlined"
+        rounded
         @click="resultLimit += 48"
-      >
-        再显示 48 门
-      </button>
+      />
     </section>
   </main>
 </template>
@@ -561,39 +625,39 @@ const readableBytes = (bytes: number) => {
   border-radius: 22px;
   background: var(--vp-c-bg-soft);
 }
-.mode-switch button {
-  display: flex;
-  gap: 14px;
-  align-items: center;
+.mode-switch :deep(.p-togglebutton) {
+  flex: 1 1 0;
+  justify-content: flex-start;
   padding: 18px 20px;
   border: 0;
   border-radius: 16px;
-  color: var(--vp-c-text-2);
-  background: transparent;
   text-align: left;
-  cursor: pointer;
-  transition: 0.2s ease;
 }
-.mode-switch button:hover {
-  color: var(--vp-c-text-1);
-  background: var(--vp-c-bg);
-}
-.mode-switch button.active {
-  color: var(--vp-c-text-1);
-  background: var(--vp-c-bg);
+
+.mode-switch :deep(.p-togglebutton-checked) {
   box-shadow: var(--vp-shadow-2);
 }
-.mode-switch strong,
-.mode-switch small {
+
+.mode-option {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+}
+
+.mode-option strong,
+.mode-option small {
   display: block;
 }
-.mode-switch strong {
+
+.mode-option strong {
   font-size: 16px;
 }
-.mode-switch small {
+
+.mode-option small {
   margin-top: 3px;
   color: var(--vp-c-text-3);
 }
+
 .mode-icon {
   display: grid;
   place-items: center;
@@ -664,32 +728,17 @@ label > span {
   font-size: 12px;
   font-weight: 700;
 }
-select,
-input {
+.selector-grid :deep(.p-select),
+.filter-grid :deep(.p-select),
+.search-box :deep(.p-inputtext) {
   width: 100%;
-  border: 1px solid var(--vp-c-divider);
-  border-radius: 12px;
-  color: var(--vp-c-text-1);
-  background: var(--vp-c-bg-soft);
-  font: inherit;
-  outline: none;
 }
-select {
+
+.selector-grid :deep(.p-select),
+.filter-grid :deep(.p-select) {
   min-height: 44px;
-  padding: 0 12px;
 }
-input {
-  padding: 13px 15px;
-}
-select:focus,
-input:focus {
-  border-color: var(--vp-c-brand-1);
-  box-shadow: 0 0 0 3px var(--vp-c-brand-soft);
-}
-select:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
+
 .term-toolbar {
   display: flex;
   justify-content: space-between;
@@ -705,22 +754,14 @@ select:disabled {
   justify-content: flex-end;
   gap: 8px;
 }
-.term-chips button,
-.result-heading button {
-  border: 1px solid var(--vp-c-divider);
+.term-chips :deep(.p-togglebutton) {
   border-radius: 999px;
-  color: var(--vp-c-text-2);
-  background: var(--vp-c-bg-soft);
-  cursor: pointer;
 }
-.term-chips button {
-  padding: 8px 12px;
-}
-.term-chips button.active {
+
+.term-chips :deep(.p-togglebutton-checked) {
   border-color: var(--vp-c-brand-1);
   color: var(--vp-c-brand-1);
   background: var(--vp-c-brand-soft);
-  font-weight: 700;
 }
 .term-group {
   margin-top: 26px;
@@ -789,20 +830,6 @@ select:disabled {
   font-family: var(--vp-font-family-mono);
   font-size: 11px;
 }
-.material-state {
-  padding: 3px 8px;
-  border-radius: 999px;
-  font-size: 11px;
-  font-weight: 700;
-}
-.material-state.ready {
-  color: var(--vp-c-green-1);
-  background: var(--vp-c-green-soft);
-}
-.material-state.empty {
-  color: var(--vp-c-text-3);
-  background: var(--vp-c-default-soft);
-}
 .course-card h3,
 .course-card h4 {
   margin: 13px 0 7px;
@@ -868,16 +895,11 @@ select:disabled {
   position: relative;
   margin-bottom: 16px;
 }
-.search-box > span {
-  position: absolute;
-  top: 50%;
-  left: 15px;
-  transform: translateY(-50%);
+.search-box :deep(.p-inputicon) {
   color: var(--vp-c-text-3);
-  font-size: 22px;
 }
-.search-box input {
-  padding-left: 46px;
+
+.search-box :deep(.p-inputtext) {
   font-size: 16px;
 }
 .result-heading {
@@ -891,22 +913,12 @@ select:disabled {
   color: var(--vp-c-text-1);
   font-size: 22px;
 }
-.result-heading button {
-  padding: 7px 12px;
-}
 .search-results {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 .load-more {
-  display: block;
+  display: flex;
   margin: 24px auto 0;
-  padding: 11px 24px;
-  border: 1px solid var(--vp-c-brand-1);
-  border-radius: 999px;
-  color: var(--vp-c-brand-1);
-  background: transparent;
-  font-weight: 700;
-  cursor: pointer;
 }
 .no-results {
   flex-direction: column;
