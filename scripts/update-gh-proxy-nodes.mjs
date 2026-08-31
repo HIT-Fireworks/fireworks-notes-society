@@ -7,7 +7,6 @@ const fallback = [
   "https://gh-proxy.com",
   "https://gh.dpik.top",
   "https://github.tbap.top",
-  "https://github.927223.xyz",
   "https://gh.inkchills.cn",
 ];
 

@@ -1,5 +1,5 @@
 {
-  "buildCommand": "node node_modules/vitepress/bin/vitepress.js build",
+  "buildCommand": "node node_modules/vitepress/bin/vitepress.js build --mpa",
   "installCommand": "bun install --frozen-lockfile",
   "outputDirectory": ".vitepress/dist",
   "nodeVersion": "22.11.0",

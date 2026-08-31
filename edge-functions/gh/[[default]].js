@@ -2,6 +2,7 @@ const DEFAULT_PROXY_NODES = [
   "https://gh-proxy.com",
   "https://gh.dpik.top",
   "https://github.tbap.top",
+  "https://gh.inkchills.cn",
 ];
 const PROBE_URL =
   "https://raw.githubusercontent.com/facebook/react/main/LICENSE";
@@ -65,21 +66,6 @@ function isValidRawUrl(value, owner) {
   }
 }
 
-function decodeSourceToken(value) {
-  try {
-    const padded = value
-      .replace(/-/g, "+")
-      .replace(/_/g, "/")
-      .padEnd(Math.ceil(value.length / 4) * 4, "=");
-    const binary = atob(padded);
-    const bytes = Uint8Array.from(binary, (character) =>
-      character.charCodeAt(0),
-    );
-    return new TextDecoder().decode(bytes);
-  } catch {
-    return "";
-  }
-}
 
 function decodeSegment(value) {
   try {
@@ -112,29 +98,8 @@ function encodePath(value) {
     .join("/");
 }
 
-function rawMatchesRoute(rawUrl, info, owner) {
-  try {
-    const parts = decodeURIComponent(new URL(rawUrl).pathname)
-      .split("/")
-      .filter(Boolean);
-    return (
-      parts[0] === owner &&
-      parts[1] === info.repoId &&
-      parts.slice(3).join("/") === info.filePath
-    );
-  } catch {
-    return false;
-  }
-}
 
 function resolveRawUrl(info, owner) {
-  const token = info.url.searchParams.get("source");
-  if (token) {
-    const source = decodeSourceToken(token);
-    return isValidRawUrl(source, owner) && rawMatchesRoute(source, info, owner)
-      ? source
-      : "";
-  }
   const revision = info.url.searchParams.get("ref") || "main";
   if (!/^[A-Za-z0-9._-]+$/.test(revision)) return "";
   const raw = `https://raw.githubusercontent.com/${encodeURIComponent(owner)}/${encodeURIComponent(info.repoId)}/${encodeURIComponent(revision)}/${encodePath(info.filePath)}`;
@@ -239,9 +204,7 @@ export async function onRequestGet(context) {
 
 export const __test = {
   configuredNodes,
-  decodeSourceToken,
   routeInfo,
   resolveRawUrl,
   isValidRawUrl,
-  rawMatchesRoute,
 };

@@ -9,10 +9,6 @@ export interface RepositoryFileEntry {
   routeKind: string;
   courseCodes: string[];
   size: number;
-  origin: string;
-  githubRawUrl: string;
-  githubProxyUrls: string[];
-  siteDownloadUrl: string;
 }
 
 export interface RepositoryFileTreeNode {
@@ -24,20 +20,13 @@ export interface RepositoryFileTreeNode {
   file?: RepositoryFileEntry;
 }
 
-export const DEFAULT_PROXY_NODES = [
-  "https://gh-proxy.com",
-  "https://gh.dpik.top",
-  "https://github.tbap.top",
-];
 
 const repoRoot = path.resolve(import.meta.dirname, "../..");
-const proxyConfigFile = path.join(repoRoot, "data/gh-proxy-nodes.json");
 const manifestFile = path.join(
   repoRoot,
   "data/repository-manifest.no-collection.v4.json",
 );
 const routesFile = path.join(repoRoot, "config/repository-file-routes.v4.json");
-const rawGithubOrigin = "https://raw.githubusercontent.com";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -76,104 +65,12 @@ function numericValue(value: unknown): number {
   return typeof value === "number" && Number.isFinite(value) ? value : 0;
 }
 
-function encodePath(value: string): string {
-  return value
-    .split("/")
-    .map((part) => encodeURIComponent(part))
-    .join("/");
-}
-
-function encodeSegment(value: string): string {
-  return encodeURIComponent(value);
-}
-
 function hasUnsafePathPart(value: string): boolean {
   return value
     .split("/")
     .some((part) => !part || part === "." || part === "..");
 }
 
-export function githubRawUrlFromOrigin(origin: string): string {
-  const match = origin.match(/^github:\/\/([^/]+)\/([^@/]+)@([^/]+)\/(.+)$/);
-  if (!match) return "";
-  const [, organization, repository, revision, filePath] = match;
-  if (
-    !organization ||
-    !repository ||
-    !revision ||
-    hasUnsafePathPart(filePath) ||
-    [organization, repository, revision].some((value) => value.includes(".."))
-  ) {
-    return "";
-  }
-  return `${rawGithubOrigin}/${encodeSegment(organization)}/${encodeSegment(repository)}/${encodeSegment(revision)}/${encodePath(filePath)}`;
-}
-
-export function encodeSourceToken(value: string): string {
-  return Buffer.from(value, "utf8").toString("base64url");
-}
-
-export function decodeSourceToken(value: string): string {
-  try {
-    return Buffer.from(value, "base64url").toString("utf8");
-  } catch {
-    return "";
-  }
-}
-
-function validProxyNode(value: string): boolean {
-  try {
-    const url = new URL(value);
-    return (
-      url.protocol === "https:" &&
-      Boolean(url.hostname) &&
-      !url.username &&
-      !url.password &&
-      !url.port &&
-      url.pathname === "/" &&
-      !url.search &&
-      !url.hash
-    );
-  } catch {
-    return false;
-  }
-}
-
-export function proxyNodes(): string[] {
-  try {
-    const configured = JSON.parse(
-      fs.readFileSync(proxyConfigFile, "utf8"),
-    ) as JsonRecord;
-    const nodes = Array.isArray(configured.nodes)
-      ? configured.nodes.filter(
-          (node): node is string =>
-            typeof node === "string" && validProxyNode(node),
-        )
-      : [];
-    if (nodes.length) return Array.from(new Set(nodes));
-  } catch {
-    // 配置缺失时使用保守默认节点。
-  }
-  return DEFAULT_PROXY_NODES;
-}
-
-export function buildGithubProxyUrl(
-  proxy: string,
-  githubRawUrl: string,
-): string {
-  return `${proxy.replace(/\/$/, "")}/${githubRawUrl}`;
-}
-
-export function buildSiteDownloadUrl(
-  repoId: string,
-  filePath: string,
-  githubRawUrl = "",
-): string {
-  const source = githubRawUrl
-    ? `?source=${encodeURIComponent(encodeSourceToken(githubRawUrl))}`
-    : "";
-  return `/gh/${encodeSegment(repoId)}/${encodePath(filePath)}${source}`;
-}
 
 function repositoryName(
   repository: JsonRecord | undefined,
@@ -200,8 +97,6 @@ export function repositoryFileEntries(repoId?: string): RepositoryFileEntry[] {
         const id = stringValue(file.repo_id);
         const filePath = stringValue(file.path);
         if (!id || !filePath || hasUnsafePathPart(filePath)) return undefined;
-        const origin = stringValue(file.origin);
-        const githubRawUrl = githubRawUrlFromOrigin(origin);
         return {
           repoId: id,
           repoName: repositoryName(repositoryById.get(id), id),
@@ -212,16 +107,6 @@ export function repositoryFileEntries(repoId?: string): RepositoryFileEntry[] {
             ? file.course_codes.map(stringValue).filter(Boolean)
             : [],
           size: numericValue(file.size),
-          origin,
-          githubRawUrl,
-          githubProxyUrls: githubRawUrl
-            ? proxyNodes().map((node) =>
-                buildGithubProxyUrl(node, githubRawUrl),
-              )
-            : [],
-          siteDownloadUrl: githubRawUrl
-            ? buildSiteDownloadUrl(id, filePath, githubRawUrl)
-            : "",
         } satisfies RepositoryFileEntry;
       })
       .filter((entry): entry is RepositoryFileEntry => Boolean(entry));
@@ -312,8 +197,4 @@ export function repositoryFileStats(repoId: string): {
         left.name.localeCompare(right.name, "zh-CN"),
     ),
   };
-}
-
-export function repositoryResourceSourceFiles(): string[] {
-  return [manifestFile, routesFile, proxyConfigFile];
 }

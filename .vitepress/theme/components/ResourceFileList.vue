@@ -1,9 +1,13 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
-import type { RepositoryFileEntry } from "../repository-resources";
+import type { CourseDetailFile } from "../course-catalog";
+import {
+  repositoryRawUrl,
+  repositorySiteDownloadUrl,
+} from "../repository-resource-links";
 
 const props = defineProps<{
-  files: RepositoryFileEntry[];
+  files: CourseDetailFile[];
 }>();
 
 const query = ref("");
@@ -71,14 +75,12 @@ function readableBytes(bytes: number): string {
         <span class="resource-kind">{{ file.routeKind }}</span>
         <span class="resource-size">{{ readableBytes(file.size) }}</span>
         <a
-          v-if="file.siteDownloadUrl"
-          :href="file.siteDownloadUrl"
+          :href="repositorySiteDownloadUrl(file)"
           class="resource-download"
           >站内加速下载</a
         >
         <a
-          v-if="file.githubRawUrl"
-          :href="file.githubRawUrl"
+          :href="repositoryRawUrl(file)"
           class="resource-direct"
           target="_blank"
           rel="noopener noreferrer"

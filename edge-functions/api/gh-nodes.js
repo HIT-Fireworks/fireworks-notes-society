@@ -2,6 +2,7 @@ const DEFAULT_PROXY_NODES = [
   "https://gh-proxy.com",
   "https://gh.dpik.top",
   "https://github.tbap.top",
+  "https://gh.inkchills.cn",
 ];
 const PROBE_URL =
   "https://raw.githubusercontent.com/facebook/react/main/LICENSE";

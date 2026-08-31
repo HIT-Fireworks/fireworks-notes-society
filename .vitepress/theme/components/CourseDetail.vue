@@ -1,10 +1,9 @@
 <script setup lang="ts">
-import type { CourseDetailData } from "../course-catalog";
-import type { RepositoryFileEntry } from "../repository-resources";
+import type { CourseDetailData, CourseDetailFile } from "../course-catalog";
 import ResourceFileList from "./ResourceFileList.vue";
 
 const { course } = defineProps<{ course: CourseDetailData }>();
-const resourceFiles: RepositoryFileEntry[] = course.files ?? [];
+const resourceFiles: CourseDetailFile[] = course.files;
 
 const readableTerm = (term: string) =>
   term

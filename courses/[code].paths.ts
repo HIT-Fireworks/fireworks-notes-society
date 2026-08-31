@@ -1,19 +1,16 @@
 import {
   courseCatalogSourceFiles,
   courseSlug,
-  getCourseDetails,
+  getCourseCatalogIndex,
 } from "../.vitepress/theme/course-catalog";
 
 export default {
-  watch: [
-    ...courseCatalogSourceFiles(),
-    "../data/gh-proxy-nodes.json",
-  ],
+  watch: courseCatalogSourceFiles(),
   paths() {
-    return Array.from(getCourseDetails().values()).map((course) => ({
+    return getCourseCatalogIndex().courses.map((course) => ({
       params: {
         code: courseSlug(course.code),
-        course,
+        courseCode: course.code,
       },
     }));
   },

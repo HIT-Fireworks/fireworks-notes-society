@@ -50,6 +50,14 @@ export interface CourseCatalogIndex {
   occurrences: CourseCatalogOccurrence[];
 }
 
+export interface CourseDetailFile {
+  repoId: string;
+  path: string;
+  name: string;
+  routeKind: string;
+  size: number;
+}
+
 export interface CourseDetailData extends CourseCatalogCourse {
   credits: string[];
   totalHours: string[];
@@ -65,7 +73,7 @@ export interface CourseDetailData extends CourseCatalogCourse {
     bytes: number;
     categories: Array<{ name: string; count: number }>;
   }>;
-  files?: RepositoryFileEntry[];
+  files: CourseDetailFile[];
 }
 
 type JsonObject = Record<string, unknown>;
@@ -360,7 +368,13 @@ function aggregate(): {
       ),
       majors,
       repositories,
-      files: repositoryFiles,
+      files: repositoryFiles.map(({ repoId, path, name, routeKind, size }) => ({
+        repoId,
+        path,
+        name,
+        routeKind,
+        size,
+      })),
     });
   }
   courses.sort(
