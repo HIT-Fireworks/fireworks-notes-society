@@ -2,6 +2,7 @@
 layout: doc
 sidebar: false
 outline: false
+lastUpdated: false
 ---
 
 <script setup lang="ts">
