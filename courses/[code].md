@@ -3,6 +3,13 @@ layout: doc
 sidebar: false
 outline: false
 lastUpdated: false
+head:
+  - - link
+    - rel: stylesheet
+      href: /assets/style.css?v=5
+  - - script
+    - type: module
+      src: /assets/course-resource.js?v=5
 ---
 
 <script setup lang="ts">

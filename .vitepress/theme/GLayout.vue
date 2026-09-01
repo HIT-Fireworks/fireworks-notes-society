@@ -61,19 +61,13 @@ watch(
 
 <template>
   <Layout>
-    <template #nav-bar-content-before>
-      <a
-        class="github-star-link"
-        href="https://github.com/HIT-Fireworks/fireworks-notes-society"
-        target="_blank"
-        rel="noopener noreferrer"
-        aria-label="在 GitHub 上查看薪火笔记社 Stars"
-      >
+    <template #nav-bar-title-after>
+      <span style="display: inline-flex; padding: 0 12px">
         <img
           src="https://img.shields.io/github/stars/HIT-Fireworks/fireworks-notes-society"
-          alt="GitHub Stars"
+          alt="star"
         />
-      </a>
+      </span>
     </template>
   </Layout>
 </template>
@@ -101,19 +95,5 @@ watch(
 
 .VPSwitchAppearance .check {
   transform: none !important;
-}
-.github-star-link {
-  display: inline-flex;
-  flex: 0 0 auto;
-  align-items: center;
-  height: 24px;
-  margin-right: 12px;
-  line-height: 0;
-}
-
-.github-star-link img {
-  display: block;
-  width: auto;
-  height: 20px;
 }
 </style>

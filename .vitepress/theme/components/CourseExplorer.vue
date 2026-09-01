@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
+import Card from "primevue/card";
+import Message from "primevue/message";
 import Button from "primevue/button";
 import IconField from "primevue/iconfield";
 import InputIcon from "primevue/inputicon";
@@ -260,6 +262,7 @@ const searchTermOptions = computed(() =>
       option-label="label"
       option-value="value"
       :allow-empty="false"
+      size="small"
       aria-label="课程查看模式"
     >
       <template #option="{ option }">
@@ -274,14 +277,16 @@ const searchTermOptions = computed(() =>
     </SelectButton>
 
 
-    <section v-if="mode === 'plan'" class="catalog-panel plan-panel">
-      <header class="panel-heading">
-        <div>
+    <Card v-if="mode === 'plan'" class="catalog-panel plan-panel">
+      <template #title>
+        <span class="panel-title">
           <span class="step-number">1</span>
-          <h2>选择你的培养方案</h2>
-        </div>
-        <p>选择会逐级缩小，不需要记专业代码。</p>
-      </header>
+          选择你的培养方案
+        </span>
+      </template>
+      <template #subtitle>选择会逐级缩小，不需要记专业代码。</template>
+      <template #content>
+
       <div class="selector-grid">
         <label>
           <span>年级 / 方案年份</span>
@@ -290,6 +295,7 @@ const searchTermOptions = computed(() =>
             :options="yearOptions"
             option-label="label"
             option-value="value"
+            size="small"
             fluid
           />
         </label>
@@ -300,6 +306,7 @@ const searchTermOptions = computed(() =>
             :options="schoolSelectOptions"
             option-label="label"
             option-value="value"
+            size="small"
             placeholder="请选择学院"
             filter
             fluid
@@ -312,6 +319,7 @@ const searchTermOptions = computed(() =>
             :options="majorSelectOptions"
             option-label="label"
             option-value="value"
+            size="small"
             placeholder="请选择专业"
             :disabled="!selectedSchool"
             filter
@@ -342,6 +350,7 @@ const searchTermOptions = computed(() =>
             ]"
             option-label="label"
             option-value="value"
+            size="small"
             :allow-empty="false"
             aria-label="选择学期"
           />
@@ -373,6 +382,7 @@ const searchTermOptions = computed(() =>
                   <Tag
                     :value="item.course.hasMaterial ? '有资料' : '待补充'"
                     :severity="item.course.hasMaterial ? 'success' : 'secondary'"
+                    size="small"
                     rounded
                   />
                 </div>
@@ -405,29 +415,29 @@ const searchTermOptions = computed(() =>
         </div>
       </template>
 
-      <div v-else class="empty-guide">
-        <span>↖</span>
-        <div>
-          <strong>从上面选好年级、学院和专业</strong>
-          <p>课程会自动按大一到大五、秋春夏学期分组展示。</p>
-        </div>
-      </div>
-    </section>
+      <Message v-else severity="secondary" variant="simple">
+        从上面选好年级、学院和专业；课程会自动按学期分组展示。
+      </Message>
+      </template>
+    </Card>
 
-    <section v-else class="catalog-panel search-panel">
-      <header class="panel-heading">
-        <div>
-          <span class="step-number">⌕</span>
-          <h2>直接检索一门课程</h2>
-        </div>
-        <p>多个条件可以组合；全部留空时展示完整目录。</p>
-      </header>
+    <Card v-else class="catalog-panel search-panel">
+      <template #title>
+        <span class="panel-title">
+          <i class="pi pi-search" aria-hidden="true" />
+          直接检索一门课程
+        </span>
+      </template>
+      <template #subtitle>多个条件可以组合；全部留空时展示完整目录。</template>
+      <template #content>
+
       <IconField class="search-box">
         <InputIcon class="pi pi-search" />
         <InputText
           v-model="keyword"
           type="search"
           placeholder="输入课程名称、课程代码或别名"
+          size="small"
           fluid
         />
       </IconField>
@@ -439,6 +449,7 @@ const searchTermOptions = computed(() =>
             :options="offeringCollegeOptions"
             option-label="label"
             option-value="value"
+            size="small"
             placeholder="全部开课学院"
             filter
             fluid
@@ -451,6 +462,7 @@ const searchTermOptions = computed(() =>
             :options="trainingSchoolOptions"
             option-label="label"
             option-value="value"
+            size="small"
             placeholder="全部培养学院"
             filter
             fluid
@@ -463,6 +475,7 @@ const searchTermOptions = computed(() =>
             :options="searchTermOptions"
             option-label="label"
             option-value="value"
+            size="small"
             placeholder="全部学期"
             fluid
           />
@@ -474,6 +487,7 @@ const searchTermOptions = computed(() =>
             :options="materialOptions"
             option-label="label"
             option-value="value"
+            size="small"
             fluid
           />
         </label>
@@ -521,6 +535,7 @@ const searchTermOptions = computed(() =>
             <Tag
               :value="course.hasMaterial ? '有资料' : '待补充'"
               :severity="course.hasMaterial ? 'success' : 'secondary'"
+              size="small"
               rounded
             />
           </div>
@@ -541,20 +556,21 @@ const searchTermOptions = computed(() =>
           </div>
         </a>
       </div>
-      <div v-else class="no-results">
-        <span>○</span><strong>没有找到符合条件的课程</strong>
-        <p>试试减少筛选条件，或只输入课程名中的一部分。</p>
-      </div>
+      <Message v-else severity="secondary" variant="simple">
+        没有找到符合条件的课程，请减少筛选条件。
+      </Message>
       <Button
         v-if="visibleCourses.length < filteredCourses.length"
         class="load-more"
         label="再显示 48 门"
         icon="pi pi-plus"
         variant="outlined"
+        size="small"
         rounded
         @click="resultLimit += 48"
       />
-    </section>
+      </template>
+    </Card>
   </main>
 </template>
 
@@ -619,76 +635,47 @@ const searchTermOptions = computed(() =>
 .mode-switch {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  padding: 7px;
-  border: 1px solid var(--vp-c-divider);
-  border-radius: 22px;
-  background: var(--vp-c-bg-soft);
 }
 .mode-switch :deep(.p-togglebutton) {
   flex: 1 1 0;
   justify-content: flex-start;
-  padding: 18px 20px;
-  border: 0;
-  border-radius: 16px;
   text-align: left;
 }
 
-.mode-switch :deep(.p-togglebutton-checked) {
-  box-shadow: var(--vp-shadow-2);
-}
 
 .mode-option {
   display: flex;
-  gap: 14px;
   align-items: center;
+  gap: 0.5rem;
 }
-
 .mode-option strong,
 .mode-option small {
   display: block;
 }
-
-.mode-option strong {
-  font-size: 16px;
-}
-
 .mode-option small {
-  margin-top: 3px;
   color: var(--vp-c-text-3);
 }
-
 .mode-icon {
-  display: grid;
-  place-items: center;
-  width: 38px;
-  height: 38px;
-  border-radius: 12px;
   color: var(--vp-c-brand-1);
-  background: var(--vp-c-brand-soft);
-  font-size: 22px;
 }
 .catalog-panel {
-  margin-top: 22px;
-  padding: 26px;
-  border: 1px solid var(--vp-c-divider);
-  border-radius: 24px;
-  background: var(--vp-c-bg);
-  box-shadow: var(--vp-shadow-1);
+  margin-top: 1rem;
 }
+
 .panel-heading {
   display: flex;
   justify-content: space-between;
-  gap: 24px;
+  gap: 1rem;
   align-items: center;
-  margin-bottom: 22px;
+  margin-bottom: 1rem;
 }
 .panel-heading > div,
 .term-toolbar > div:first-child {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 0.5rem;
 }
+
 .panel-heading h2,
 .term-toolbar h2 {
   margin: 0;
@@ -716,55 +703,35 @@ const searchTermOptions = computed(() =>
 .filter-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 14px;
+  gap: 0.75rem;
 }
+
 .filter-grid {
   grid-template-columns: repeat(4, 1fr);
 }
 label > span {
   display: block;
-  margin: 0 0 7px;
+  margin-bottom: 0.25rem;
   color: var(--vp-c-text-2);
   font-size: 12px;
   font-weight: 700;
 }
-.selector-grid :deep(.p-select),
-.filter-grid :deep(.p-select),
-.search-box :deep(.p-inputtext) {
-  width: 100%;
-}
 
-.selector-grid :deep(.p-select),
-.filter-grid :deep(.p-select) {
-  min-height: 44px;
-}
 
 .term-toolbar {
   display: flex;
   justify-content: space-between;
-  gap: 20px;
+  gap: 1rem;
   align-items: flex-start;
-  margin: 28px -4px 18px;
-  padding-top: 26px;
-  border-top: 1px solid var(--vp-c-divider);
+  margin-top: 1rem;
 }
 .term-chips {
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
-  gap: 8px;
-}
-.term-chips :deep(.p-togglebutton) {
-  border-radius: 999px;
-}
-
-.term-chips :deep(.p-togglebutton-checked) {
-  border-color: var(--vp-c-brand-1);
-  color: var(--vp-c-brand-1);
-  background: var(--vp-c-brand-soft);
 }
 .term-group {
-  margin-top: 26px;
+  margin-top: 1rem;
 }
 .term-group > header {
   display: flex;
@@ -796,16 +763,16 @@ label > span {
 .course-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
+  gap: 0.75rem;
 }
 .course-card {
   position: relative;
   display: flex;
-  min-height: 178px;
+  min-height: 150px;
   flex-direction: column;
-  padding: 17px;
+  padding: 0.875rem;
   border: 1px solid var(--vp-c-divider);
-  border-radius: 16px;
+  border-radius: var(--p-content-border-radius);
   color: inherit !important;
   background: var(--vp-c-bg-soft);
   text-decoration: none !important;
@@ -832,9 +799,9 @@ label > span {
 }
 .course-card h3,
 .course-card h4 {
-  margin: 13px 0 7px;
+  margin: 0.5rem 0 0.25rem;
   border: 0;
-  font-size: 17px;
+  font-size: 16px;
   line-height: 1.4;
 }
 .course-meta,
@@ -853,14 +820,14 @@ label > span {
   font-size: 11px;
 }
 .course-college {
-  margin: 8px 0 12px;
+  margin: 0.375rem 0 0.5rem;
   color: var(--vp-c-text-2);
   font-size: 12px;
-  line-height: 1.55;
+  line-height: 1.5;
 }
 .resource-summary {
   margin-top: auto;
-  padding-top: 11px;
+  padding-top: 0.5rem;
   border-top: 1px solid var(--vp-c-divider);
   color: var(--vp-c-brand-1);
   font-size: 12px;
@@ -892,33 +859,28 @@ label > span {
   margin: 5px 0 0;
 }
 .search-box {
-  position: relative;
-  margin-bottom: 16px;
+  margin-bottom: 0.75rem;
 }
 .search-box :deep(.p-inputicon) {
   color: var(--vp-c-text-3);
-}
-
-.search-box :deep(.p-inputtext) {
-  font-size: 16px;
 }
 .result-heading {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin: 25px 0 14px;
+  margin: 1rem 0 0.5rem;
   color: var(--vp-c-text-2);
 }
 .result-heading strong {
   color: var(--vp-c-text-1);
-  font-size: 22px;
+  font-size: 20px;
 }
 .search-results {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 .load-more {
   display: flex;
-  margin: 24px auto 0;
+  margin: 1rem auto 0;
 }
 .no-results {
   flex-direction: column;
@@ -968,10 +930,6 @@ label > span {
   }
   .mode-switch {
     grid-template-columns: 1fr;
-  }
-  .catalog-panel {
-    padding: 17px;
-    border-radius: 18px;
   }
   .panel-heading {
     align-items: flex-start;

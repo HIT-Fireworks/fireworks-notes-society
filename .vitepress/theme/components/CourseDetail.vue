@@ -1,3 +1,11 @@
+<script lang="ts">
+import type { CourseDetailFile } from "../course-catalog";
+
+export function serializeResourceFiles(files: CourseDetailFile[]): string {
+  return Buffer.from(JSON.stringify(files), "utf8").toString("base64");
+}
+</script>
+
 <script setup lang="ts">
 import type { CourseDetailData, CourseDetailFile } from "../course-catalog";
 import ResourceFileList from "./ResourceFileList.vue";
@@ -164,11 +172,16 @@ const readableBytes = (bytes: number) => {
         </article>
       </div>
       <div v-if="resourceFiles.length" class="resource-files-panel">
-        <h3>文件列表</h3>
+        <h3>资料文件树</h3>
         <p class="resource-files-note">
-          文件名和目录来自当前仓库快照；点击“站内加速下载”会使用本站固定地址。
+          加速下载经过本站 CDN；直连代理绕过本站 CDN。
         </p>
-        <ResourceFileList :files="resourceFiles" />
+        <div
+          id="course-resource-root"
+          :data-files="serializeResourceFiles(resourceFiles)"
+        >
+          <ResourceFileList :files="resourceFiles" />
+        </div>
       </div>
       <div v-else-if="!course.repositories.length" class="contribution-callout">
         <div>

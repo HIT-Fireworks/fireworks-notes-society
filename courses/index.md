@@ -6,10 +6,10 @@ pageClass: course-catalog-page
 head:
   - - link
     - rel: stylesheet
-      href: /assets/course-explorer.css?v=3
+      href: /assets/style.css?v=5
   - - script
     - type: module
-      src: /assets/course-explorer.js?v=3
+      src: /assets/course-explorer.js?v=5
 
 ---
 

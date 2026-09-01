@@ -16,15 +16,20 @@ export default defineConfig({
     emptyOutDir: false,
     outDir: ".vitepress/dist/assets",
     lib: {
-      entry: fileURLToPath(
-        new URL("./.vitepress/theme/course-explorer-client.ts", import.meta.url),
-      ),
+      entry: {
+        "course-explorer": fileURLToPath(
+          new URL("./.vitepress/theme/course-explorer-client.ts", import.meta.url),
+        ),
+        "course-resource": fileURLToPath(
+          new URL("./.vitepress/theme/course-resource-client.ts", import.meta.url),
+        ),
+      },
       formats: ["es"],
-      fileName: () => "course-explorer.js",
     },
     rollupOptions: {
       output: {
-        assetFileNames: "course-explorer.[ext]",
+        entryFileNames: "[name].js",
+        assetFileNames: "[name].[ext]",
       },
     },
   },

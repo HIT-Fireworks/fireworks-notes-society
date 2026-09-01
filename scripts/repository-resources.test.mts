@@ -26,7 +26,7 @@ test("构建期和浏览器共用目标课程仓下载地址契约", () => {
   );
   assert.equal(
     repositoryRawUrl(file),
-    "https://raw.githubusercontent.com/HIT-Fireworks/COURSES-A/main/%E8%B5%84%E6%96%99/a%20b.pdf",
+    "https://gh.dpik.top/https://raw.githubusercontent.com/HIT-Fireworks/COURSES-A/main/%E8%B5%84%E6%96%99/a%20b.pdf",
   );
 });
 

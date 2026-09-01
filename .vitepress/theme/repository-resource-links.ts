@@ -12,8 +12,11 @@ function encodePath(value: string): string {
     .join("/");
 }
 
+const directProxyNode = "https://gh.dpik.top";
+
 export function repositoryRawUrl(file: RepositoryResourceLink): string {
-  return `https://raw.githubusercontent.com/${repositoryOwner}/${encodeURIComponent(file.repoId)}/main/${encodePath(file.path)}`;
+  const rawUrl = `https://raw.githubusercontent.com/${repositoryOwner}/${encodeURIComponent(file.repoId)}/main/${encodePath(file.path)}`;
+  return `${directProxyNode}/${rawUrl}`;
 }
 
 export function repositorySiteDownloadUrl(
