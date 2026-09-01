@@ -6,10 +6,10 @@ lastUpdated: false
 head:
   - - link
     - rel: stylesheet
-      href: /assets/style.css?v=5
+      href: /assets/style.css?v=6
   - - script
     - type: module
-      src: /assets/course-resource.js?v=5
+      src: /assets/course-resource.js?v=6
 ---
 
 <script setup lang="ts">
