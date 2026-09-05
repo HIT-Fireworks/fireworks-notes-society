@@ -82,7 +82,6 @@ const schoolSelectOptions = computed(() =>
   schoolOptions.value.map((school) => ({ label: school, value: school })),
 );
 
-
 const majorOptions = computed(() =>
   catalog.plans
     .filter(
@@ -98,7 +97,6 @@ const majorSelectOptions = computed(() =>
     value: plan.id,
   })),
 );
-
 
 const selectedPlan = computed(() =>
   catalog.plans.find((plan) => plan.id === selectedPlanId.value),
@@ -276,7 +274,6 @@ const searchTermOptions = computed(() =>
       </template>
     </SelectButton>
 
-
     <Card v-if="mode === 'plan'" class="catalog-panel plan-panel">
       <template #title>
         <span class="panel-title">
@@ -286,138 +283,137 @@ const searchTermOptions = computed(() =>
       </template>
       <template #subtitle>选择会逐级缩小，不需要记专业代码。</template>
       <template #content>
+        <div class="selector-grid">
+          <label>
+            <span>年级 / 方案年份</span>
+            <Select
+              v-model="selectedYear"
+              :options="yearOptions"
+              option-label="label"
+              option-value="value"
+              size="small"
+              fluid
+            />
+          </label>
+          <label>
+            <span>培养学院</span>
+            <Select
+              v-model="selectedSchool"
+              :options="schoolSelectOptions"
+              option-label="label"
+              option-value="value"
+              size="small"
+              placeholder="请选择学院"
+              filter
+              fluid
+            />
+          </label>
+          <label>
+            <span>专业</span>
+            <Select
+              v-model="selectedPlanId"
+              :options="majorSelectOptions"
+              option-label="label"
+              option-value="value"
+              size="small"
+              placeholder="请选择专业"
+              :disabled="!selectedSchool"
+              filter
+              fluid
+            />
+          </label>
+        </div>
 
-      <div class="selector-grid">
-        <label>
-          <span>年级 / 方案年份</span>
-          <Select
-            v-model="selectedYear"
-            :options="yearOptions"
-            option-label="label"
-            option-value="value"
-            size="small"
-            fluid
-          />
-        </label>
-        <label>
-          <span>培养学院</span>
-          <Select
-            v-model="selectedSchool"
-            :options="schoolSelectOptions"
-            option-label="label"
-            option-value="value"
-            size="small"
-            placeholder="请选择学院"
-            filter
-            fluid
-          />
-        </label>
-        <label>
-          <span>专业</span>
-          <Select
-            v-model="selectedPlanId"
-            :options="majorSelectOptions"
-            option-label="label"
-            option-value="value"
-            size="small"
-            placeholder="请选择专业"
-            :disabled="!selectedSchool"
-            filter
-            fluid
-          />
-        </label>
-      </div>
-
-
-      <template v-if="selectedPlan">
-        <div class="term-toolbar">
-          <div>
-            <span class="step-number">2</span>
+        <template v-if="selectedPlan">
+          <div class="term-toolbar">
             <div>
-              <h2>选择学年与学期</h2>
-              <p>{{ selectedPlan.majorName }} · {{ selectedPlan.version }}</p>
-            </div>
-          </div>
-          <SelectButton
-            v-model="selectedTerm"
-            class="term-chips"
-            :options="[
-              { label: '全部学期', value: 'all' },
-              ...selectedPlan.terms.map((term) => ({
-                label: readableTerm(term),
-                value: term,
-              })),
-            ]"
-            option-label="label"
-            option-value="value"
-            size="small"
-            :allow-empty="false"
-            aria-label="选择学期"
-          />
-        </div>
-
-
-        <div class="term-groups">
-          <section
-            v-for="group in planGroups"
-            :key="group.term"
-            class="term-group"
-          >
-            <header>
+              <span class="step-number">2</span>
               <div>
-                <span class="term-dot"></span>
-                <h3>{{ readableTerm(group.term) }}</h3>
+                <h2>选择学年与学期</h2>
+                <p>{{ selectedPlan.majorName }} · {{ selectedPlan.version }}</p>
               </div>
-              <span>{{ group.courses.length }} 门课</span>
-            </header>
-            <div class="course-grid">
-              <a
-                v-for="item in group.courses"
-                :key="item.course.code"
-                class="course-card"
-                :href="courseLink(item.course.code)"
-              >
-                <div class="card-topline">
-                  <span class="course-code">{{ item.course.code }}</span>
-                  <Tag
-                    :value="item.course.hasMaterial ? '有资料' : '待补充'"
-                    :severity="item.course.hasMaterial ? 'success' : 'secondary'"
-                    size="small"
-                    rounded
-                  />
-                </div>
-                <h4>{{ item.course.name }}</h4>
-                <p class="course-meta">
-                  <span v-if="item.occurrence.credit !== undefined"
-                    >{{ item.occurrence.credit }} 学分</span
-                  >
-                  <span v-if="item.occurrence.totalHours !== undefined"
-                    >{{ item.occurrence.totalHours }} 学时</span
-                  >
-                  <span v-if="item.occurrence.courseNature">{{
-                    item.occurrence.courseNature
-                  }}</span>
-                </p>
-                <p class="course-college">
-                  {{
-                    item.occurrence.offeringCollege ||
-                    item.course.offeringColleges[0] ||
-                    "开课学院未标注"
-                  }}
-                </p>
-                <div v-if="item.course.hasMaterial" class="resource-summary">
-                  {{ item.course.fileCount }} 个文件 ·
-                  {{ readableBytes(item.course.bytes) }}
-                </div>
-              </a>
             </div>
-          </section>
-        </div>
-      </template>
+            <SelectButton
+              v-model="selectedTerm"
+              class="term-chips"
+              :options="[
+                { label: '全部学期', value: 'all' },
+                ...selectedPlan.terms.map((term) => ({
+                  label: readableTerm(term),
+                  value: term,
+                })),
+              ]"
+              option-label="label"
+              option-value="value"
+              size="small"
+              :allow-empty="false"
+              aria-label="选择学期"
+            />
+          </div>
 
-      <Message v-else severity="secondary" variant="simple">
-        从上面选好年级、学院和专业；课程会自动按学期分组展示。
-      </Message>
+          <div class="term-groups">
+            <section
+              v-for="group in planGroups"
+              :key="group.term"
+              class="term-group"
+            >
+              <header>
+                <div>
+                  <span class="term-dot"></span>
+                  <h3>{{ readableTerm(group.term) }}</h3>
+                </div>
+                <span>{{ group.courses.length }} 门课</span>
+              </header>
+              <div class="course-grid">
+                <a
+                  v-for="item in group.courses"
+                  :key="item.course.code"
+                  class="course-card"
+                  :href="courseLink(item.course.code)"
+                >
+                  <div class="card-topline">
+                    <span class="course-code">{{ item.course.code }}</span>
+                    <Tag
+                      :value="item.course.hasMaterial ? '有资料' : '待补充'"
+                      :severity="
+                        item.course.hasMaterial ? 'success' : 'secondary'
+                      "
+                      size="small"
+                      rounded
+                    />
+                  </div>
+                  <h4>{{ item.course.name }}</h4>
+                  <p class="course-meta">
+                    <span v-if="item.occurrence.credit !== undefined"
+                      >{{ item.occurrence.credit }} 学分</span
+                    >
+                    <span v-if="item.occurrence.totalHours !== undefined"
+                      >{{ item.occurrence.totalHours }} 学时</span
+                    >
+                    <span v-if="item.occurrence.courseNature">{{
+                      item.occurrence.courseNature
+                    }}</span>
+                  </p>
+                  <p class="course-college">
+                    {{
+                      item.occurrence.offeringCollege ||
+                      item.course.offeringColleges[0] ||
+                      "开课学院未标注"
+                    }}
+                  </p>
+                  <div v-if="item.course.hasMaterial" class="resource-summary">
+                    {{ item.course.fileCount }} 个文件 ·
+                    {{ readableBytes(item.course.bytes) }}
+                  </div>
+                </a>
+              </div>
+            </section>
+          </div>
+        </template>
+
+        <Message v-else severity="secondary" variant="simple">
+          从上面选好年级、学院和专业；课程会自动按学期分组展示。
+        </Message>
       </template>
     </Card>
 
@@ -430,145 +426,142 @@ const searchTermOptions = computed(() =>
       </template>
       <template #subtitle>多个条件可以组合；全部留空时展示完整目录。</template>
       <template #content>
-
-      <IconField class="search-box">
-        <InputIcon class="pi pi-search" />
-        <InputText
-          v-model="keyword"
-          type="search"
-          placeholder="输入课程名称、课程代码或别名"
-          size="small"
-          fluid
-        />
-      </IconField>
-      <div class="filter-grid">
-        <label>
-          <span>开课学院</span>
-          <Select
-            v-model="offeringCollege"
-            :options="offeringCollegeOptions"
-            option-label="label"
-            option-value="value"
-            size="small"
-            placeholder="全部开课学院"
-            filter
-            fluid
-          />
-        </label>
-        <label>
-          <span>培养学院</span>
-          <Select
-            v-model="trainingSchool"
-            :options="trainingSchoolOptions"
-            option-label="label"
-            option-value="value"
-            size="small"
-            placeholder="全部培养学院"
-            filter
-            fluid
-          />
-        </label>
-        <label>
-          <span>推荐学期</span>
-          <Select
-            v-model="searchTerm"
-            :options="searchTermOptions"
-            option-label="label"
-            option-value="value"
-            size="small"
-            placeholder="全部学期"
-            fluid
-          />
-        </label>
-        <label>
-          <span>资料状态</span>
-          <Select
-            v-model="materialFilter"
-            :options="materialOptions"
-            option-label="label"
-            option-value="value"
+        <IconField class="search-box">
+          <InputIcon class="pi pi-search" />
+          <InputText
+            v-model="keyword"
+            type="search"
+            placeholder="输入课程名称或课程代码"
             size="small"
             fluid
           />
-        </label>
-      </div>
-
-
-      <div class="result-heading">
-        <div>
-          <strong>{{ filteredCourses.length }}</strong> 门课程符合条件
-        </div>
-        <Button
-          v-if="
-            keyword ||
-            offeringCollege ||
-            trainingSchool ||
-            searchTerm ||
-            materialFilter !== 'all'
-          "
-          label="清空筛选"
-          icon="pi pi-filter-slash"
-          severity="secondary"
-          variant="outlined"
-          rounded
-          size="small"
-          @click="
-            keyword = '';
-            offeringCollege = '';
-            trainingSchool = '';
-            searchTerm = '';
-            materialFilter = 'all';
-          "
-        />
-
-      </div>
-
-      <div v-if="visibleCourses.length" class="course-grid search-results">
-        <a
-          v-for="course in visibleCourses"
-          :key="course.code"
-          class="course-card"
-          :href="courseLink(course.code)"
-        >
-          <div class="card-topline">
-            <span class="course-code">{{ course.code }}</span>
-            <Tag
-              :value="course.hasMaterial ? '有资料' : '待补充'"
-              :severity="course.hasMaterial ? 'success' : 'secondary'"
+        </IconField>
+        <div class="filter-grid">
+          <label>
+            <span>开课学院</span>
+            <Select
+              v-model="offeringCollege"
+              :options="offeringCollegeOptions"
+              option-label="label"
+              option-value="value"
               size="small"
-              rounded
+              placeholder="全部开课学院"
+              filter
+              fluid
             />
+          </label>
+          <label>
+            <span>培养学院</span>
+            <Select
+              v-model="trainingSchool"
+              :options="trainingSchoolOptions"
+              option-label="label"
+              option-value="value"
+              size="small"
+              placeholder="全部培养学院"
+              filter
+              fluid
+            />
+          </label>
+          <label>
+            <span>推荐学期</span>
+            <Select
+              v-model="searchTerm"
+              :options="searchTermOptions"
+              option-label="label"
+              option-value="value"
+              size="small"
+              placeholder="全部学期"
+              fluid
+            />
+          </label>
+          <label>
+            <span>资料状态</span>
+            <Select
+              v-model="materialFilter"
+              :options="materialOptions"
+              option-label="label"
+              option-value="value"
+              size="small"
+              fluid
+            />
+          </label>
+        </div>
+
+        <div class="result-heading">
+          <div>
+            <strong>{{ filteredCourses.length }}</strong> 门课程符合条件
           </div>
-          <h3>{{ course.name }}</h3>
-          <p class="course-college">
-            {{
-              course.offeringColleges.slice(0, 2).join(" · ") ||
-              "开课学院未标注"
-            }}
-          </p>
-          <div class="tag-row">
-            <span v-for="term in course.terms.slice(0, 3)" :key="term">{{
-              readableTerm(term)
-            }}</span>
-          </div>
-          <div v-if="course.hasMaterial" class="resource-summary">
-            {{ course.fileCount }} 个文件 · {{ readableBytes(course.bytes) }}
-          </div>
-        </a>
-      </div>
-      <Message v-else severity="secondary" variant="simple">
-        没有找到符合条件的课程，请减少筛选条件。
-      </Message>
-      <Button
-        v-if="visibleCourses.length < filteredCourses.length"
-        class="load-more"
-        label="再显示 48 门"
-        icon="pi pi-plus"
-        variant="outlined"
-        size="small"
-        rounded
-        @click="resultLimit += 48"
-      />
+          <Button
+            v-if="
+              keyword ||
+              offeringCollege ||
+              trainingSchool ||
+              searchTerm ||
+              materialFilter !== 'all'
+            "
+            label="清空筛选"
+            icon="pi pi-filter-slash"
+            severity="secondary"
+            variant="outlined"
+            rounded
+            size="small"
+            @click="
+              keyword = '';
+              offeringCollege = '';
+              trainingSchool = '';
+              searchTerm = '';
+              materialFilter = 'all';
+            "
+          />
+        </div>
+
+        <div v-if="visibleCourses.length" class="course-grid search-results">
+          <a
+            v-for="course in visibleCourses"
+            :key="course.code"
+            class="course-card"
+            :href="courseLink(course.code)"
+          >
+            <div class="card-topline">
+              <span class="course-code">{{ course.code }}</span>
+              <Tag
+                :value="course.hasMaterial ? '有资料' : '待补充'"
+                :severity="course.hasMaterial ? 'success' : 'secondary'"
+                size="small"
+                rounded
+              />
+            </div>
+            <h3>{{ course.name }}</h3>
+            <p class="course-college">
+              {{
+                course.offeringColleges.slice(0, 2).join(" · ") ||
+                "开课学院未标注"
+              }}
+            </p>
+            <div class="tag-row">
+              <span v-for="term in course.terms.slice(0, 3)" :key="term">{{
+                readableTerm(term)
+              }}</span>
+            </div>
+            <div v-if="course.hasMaterial" class="resource-summary">
+              {{ course.fileCount }} 个文件 · {{ readableBytes(course.bytes) }}
+            </div>
+          </a>
+        </div>
+        <Message v-else severity="secondary" variant="simple">
+          没有找到符合条件的课程，请减少筛选条件。
+        </Message>
+        <Button
+          v-if="visibleCourses.length < filteredCourses.length"
+          class="load-more"
+          label="再显示 48 门"
+          icon="pi pi-plus"
+          variant="outlined"
+          size="small"
+          rounded
+          @click="resultLimit += 48"
+        />
       </template>
     </Card>
   </main>
@@ -641,7 +634,6 @@ const searchTermOptions = computed(() =>
   justify-content: flex-start;
   text-align: left;
 }
-
 
 .mode-option {
   display: flex;
@@ -716,7 +708,6 @@ label > span {
   font-size: 12px;
   font-weight: 700;
 }
-
 
 .term-toolbar {
   display: flex;

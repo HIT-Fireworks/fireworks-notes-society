@@ -123,11 +123,6 @@ function number(value: unknown): number | undefined {
     : undefined;
 }
 
-function strings(value: unknown): string[] {
-  if (!Array.isArray(value)) return [];
-  return value.map(text).filter(Boolean);
-}
-
 function unique(values: Iterable<string>): string[] {
   return Array.from(new Set(Array.from(values).filter(Boolean))).sort((a, b) =>
     a.localeCompare(b, "zh-CN"),
@@ -290,10 +285,7 @@ function aggregate(): {
         displayName: text(repository?.display_name) || repoId,
         githubUrl: `https://github.com/HIT-Fireworks/${repoId}`,
         fileCount: filesForRepository.length,
-        bytes: filesForRepository.reduce(
-          (sum, file) => sum + file.size,
-          0,
-        ),
+        bytes: filesForRepository.reduce((sum, file) => sum + file.size, 0),
         categories: Array.from(categoryCounts, ([name, count]) => ({
           name,
           count,
@@ -306,6 +298,7 @@ function aggregate(): {
       text(descriptor?.course_name),
       ...records.map((record) => text(record.course_name)),
     ]);
+    const name = text(descriptor?.course_name) || names[0] || code;
     const majors = Array.from(
       new Map(
         records
@@ -333,13 +326,8 @@ function aggregate(): {
     );
     const summary: CourseCatalogCourse = {
       code,
-      name: names[0] || code,
-      aliases: unique([
-        ...names.slice(1),
-        ...repoIds.flatMap((repoId) =>
-          strings(repositoryById.get(repoId)?.aliases),
-        ),
-      ]),
+      name,
+      aliases: names.filter((value) => value !== name),
       offeringColleges: unique(
         records.map((record) => text(record.offering_college)),
       ),

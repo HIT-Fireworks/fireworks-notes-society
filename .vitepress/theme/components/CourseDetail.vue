@@ -23,96 +23,98 @@ const readableTerm = (term: string) =>
     .replace("秋季", "秋")
     .replace("春季", "春")
     .replace("夏季", "夏");
-const readableBytes = (bytes: number) => {
-  if (bytes >= 1024 ** 3) return `${(bytes / 1024 ** 3).toFixed(1)} GB`;
-  if (bytes >= 1024 ** 2) return `${(bytes / 1024 ** 2).toFixed(1)} MB`;
-  if (bytes >= 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${bytes} B`;
-};
 </script>
 
 <template>
   <article class="course-detail">
     <nav class="course-breadcrumb" aria-label="面包屑">
-      <a href="/courses/">课程中心</a><span>/</span
-      ><span>{{ course.name }}</span>
+      <a href="/courses/">课程中心</a>
+      <span aria-hidden="true">/</span>
+      <span class="course-code" aria-current="page">{{ course.code }}</span>
     </nav>
 
-    <header class="detail-hero">
-      <div>
-        <div class="detail-badges">
-          <span class="course-code">{{ course.code }}</span>
-          <span
-            :class="['material-state', course.hasMaterial ? 'ready' : 'empty']"
-          >
-            {{ course.hasMaterial ? "已有课程资料" : "资料待补充" }}
-          </span>
-        </div>
-        <h1>{{ course.name }}</h1>
-        <p v-if="course.aliases.length" class="aliases">
-          也叫：{{ course.aliases.slice(0, 5).join("、") }}
-        </p>
-        <div class="hero-meta">
-          <span v-for="college in course.offeringColleges" :key="college">{{
-            college
-          }}</span>
-          <span v-for="term in course.terms" :key="term">{{
-            readableTerm(term)
-          }}</span>
-        </div>
-      </div>
-      <div class="resource-meter">
-        <strong>{{ course.fileCount }}</strong
-        ><span>个资料文件</span>
-        <small>{{ readableBytes(course.bytes) }}</small>
-      </div>
+    <header class="course-heading">
+      <h1>{{ course.name }}</h1>
     </header>
 
-    <section class="info-section">
-      <header>
-        <p>COURSE PROFILE</p>
-        <h2>课程基本信息</h2>
-      </header>
-      <dl class="info-grid">
-        <div>
-          <dt>课程代码</dt>
-          <dd>{{ course.code }}</dd>
-        </div>
-        <div>
-          <dt>学分</dt>
-          <dd>{{ course.credits.join(" / ") || "未标注" }}</dd>
-        </div>
-        <div>
-          <dt>总学时</dt>
-          <dd>
-            {{
-              course.totalHours.map((value) => `${value} 学时`).join(" / ") ||
-              "未标注"
-            }}
-          </dd>
-        </div>
-        <div>
-          <dt>考核方式</dt>
-          <dd>{{ course.assessmentMethods.join(" / ") || "未标注" }}</dd>
-        </div>
-        <div>
-          <dt>课程性质</dt>
-          <dd>{{ course.courseNatures.join(" / ") || "未标注" }}</dd>
-        </div>
-        <div>
-          <dt>课程类别</dt>
-          <dd>{{ course.courseCategories.join(" / ") || "未标注" }}</dd>
-        </div>
-      </dl>
+    <dl class="course-highlights" aria-label="课程基本信息">
+      <div class="info-card">
+        <dt>学分</dt>
+        <dd>{{ course.credits.join(" / ") || "未标注" }}</dd>
+      </div>
+      <div class="info-card">
+        <dt>总学时</dt>
+        <dd>{{ course.totalHours.join(" / ") || "未标注" }}</dd>
+      </div>
+      <div class="info-card">
+        <dt>考核方式</dt>
+        <dd>{{ course.assessmentMethods.join(" / ") || "未标注" }}</dd>
+      </div>
+      <div class="info-card">
+        <dt>课程性质</dt>
+        <dd>{{ course.courseNatures.join(" / ") || "未标注" }}</dd>
+        <dt class="category-label">课程类别</dt>
+        <dd class="category-value">
+          {{ course.courseCategories.join(" / ") || "未标注" }}
+        </dd>
+      </div>
+      <div class="info-card info-card-wide">
+        <dt>开课学院</dt>
+        <dd>{{ course.offeringColleges.join("、") || "未标注" }}</dd>
+      </div>
+      <div class="info-card info-card-wide">
+        <dt>推荐学期</dt>
+        <dd>{{ course.terms.map(readableTerm).join("、") || "未标注" }}</dd>
+      </div>
+    </dl>
+
+    <section
+      class="resources-section"
+      aria-labelledby="course-materials-heading"
+    >
+      <h2 id="course-materials-heading">课程资料</h2>
+      <div
+        v-if="resourceFiles.length"
+        id="course-resource-root"
+        :data-files="serializeResourceFiles(resourceFiles)"
+      >
+        <ResourceFileList :files="resourceFiles" />
+      </div>
+      <div v-else class="materials-empty">
+        <p>这门课暂时没有可浏览的资料。</p>
+        <a
+          href="https://github.com/HIT-Fireworks/fireworks-notes-society/issues/new"
+          target="_blank"
+          rel="noopener noreferrer"
+          >提交资料线索</a
+        >
+      </div>
+      <div v-if="course.repositories.length" class="material-sources">
+        <span>资料来源</span>
+        <ul>
+          <li
+            v-for="repository in course.repositories"
+            :key="repository.repoId"
+          >
+            <a
+              :href="repository.githubUrl"
+              target="_blank"
+              rel="noopener noreferrer"
+              >{{
+                course.repositories.length === 1
+                  ? "GitHub"
+                  : repository.displayName
+              }}</a
+            >
+          </li>
+        </ul>
+      </div>
     </section>
 
-    <section class="info-section">
-      <header>
-        <p>WHERE IT APPEARS</p>
-        <h2>哪些专业会学这门课</h2>
-      </header>
-      <div v-if="course.majors.length" class="major-table-wrap">
-        <table class="major-table">
+    <div class="course-supplement">
+      <details class="course-disclosure">
+        <summary>培养方案中的安排</summary>
+        <table v-if="course.majors.length" class="curriculum-table">
           <thead>
             <tr>
               <th>培养学院</th>
@@ -125,371 +127,231 @@ const readableBytes = (bytes: number) => {
               v-for="item in course.majors"
               :key="`${item.school}-${item.major}-${item.term}`"
             >
-              <td>{{ item.school }}</td>
-              <td>{{ item.major }}</td>
-              <td>{{ readableTerm(item.term) }}</td>
+              <td data-label="培养学院">{{ item.school }}</td>
+              <td data-label="专业">{{ item.major }}</td>
+              <td data-label="推荐学期">{{ readableTerm(item.term) }}</td>
             </tr>
           </tbody>
         </table>
-      </div>
-      <p v-else class="section-empty">培养方案中暂无专业覆盖信息。</p>
-    </section>
-
-    <section class="info-section resources-section">
-      <header>
-        <p>COURSE MATERIALS</p>
-        <h2>课程资料</h2>
-      </header>
-      <div v-if="course.repositories.length" class="repository-grid">
-        <article
-          v-for="repository in course.repositories"
-          :key="repository.repoId"
-          class="repository-card"
-        >
-          <div>
-            <span class="repo-label">HIT-Fireworks</span>
-            <h3>{{ repository.displayName }}</h3>
-            <p>
-              {{ repository.fileCount }} 个文件 ·
-              {{ readableBytes(repository.bytes) }}
-            </p>
-          </div>
-          <div v-if="repository.categories.length" class="category-list">
-            <span
-              v-for="category in repository.categories"
-              :key="category.name"
-            >
-              {{ category.name }} {{ category.count }}
-            </span>
-          </div>
-          <a
-            :href="repository.githubUrl"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            在 GitHub 查看资料 <span aria-hidden="true">↗</span>
-          </a>
-        </article>
-      </div>
-      <div v-if="resourceFiles.length" class="resource-files-panel">
-        <h3>资料文件树</h3>
-        <p class="resource-files-note">
-          加速下载经过本站 CDN；直连代理绕过本站 CDN。
-        </p>
-        <div
-          id="course-resource-root"
-          :data-files="serializeResourceFiles(resourceFiles)"
-        >
-          <ResourceFileList :files="resourceFiles" />
-        </div>
-      </div>
-      <div v-else-if="!course.repositories.length" class="contribution-callout">
-        <div>
-          <strong>这门课还没有资料</strong>
-          <p>如果你有笔记、试卷、作业或经验，欢迎成为第一个贡献者。</p>
-        </div>
-        <a
-          href="https://github.com/HIT-Fireworks/fireworks-notes-society/issues/new"
-          target="_blank"
-          rel="noopener noreferrer"
-          >提交资料线索</a
-        >
-      </div>
-    </section>
-
-    <footer class="detail-footer">
-      <a href="/courses/">← 返回课程中心</a>
-      <a
-        v-if="course.repoId"
-        :href="`https://github.com/HIT-Fireworks/${course.repoId}`"
-        target="_blank"
-        rel="noopener noreferrer"
-        >课程仓库 ↗</a
-      >
-    </footer>
+        <p v-else class="arrangements-empty">培养方案中暂无专业覆盖信息。</p>
+      </details>
+    </div>
   </article>
 </template>
 
 <style scoped>
 .course-detail {
-  max-width: 980px;
+  width: 100%;
+  max-width: 1040px;
   margin: 0 auto;
-  padding: 26px 24px 80px;
+  padding: 32px 24px 72px;
   color: var(--vp-c-text-1);
+  line-height: 1.6;
+  overflow-wrap: anywhere;
 }
 .course-breadcrumb {
   display: flex;
-  gap: 9px;
+  flex-wrap: wrap;
   align-items: center;
-  margin: 8px 0 32px;
-  color: var(--vp-c-text-3);
+  gap: 10px;
+  margin-bottom: 18px;
+  color: var(--vp-c-text-2);
   font-size: 13px;
 }
-.course-breadcrumb a {
+.course-detail a {
   color: var(--vp-c-brand-1);
   text-decoration: none;
 }
-.detail-hero {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 150px;
-  gap: 30px;
-  align-items: end;
-  padding: 34px;
-  border: 1px solid var(--vp-c-divider);
-  border-radius: 26px;
-  background: linear-gradient(135deg, var(--vp-c-bg-soft), var(--vp-c-bg));
-  box-shadow: var(--vp-shadow-2);
+.course-detail a:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
-.detail-badges {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
+.course-detail a:focus-visible,
+.course-disclosure summary:focus-visible {
+  outline: 2px solid var(--vp-c-brand-1);
+  outline-offset: 4px;
+  border-radius: 3px;
 }
 .course-code {
-  padding: 5px 9px;
-  border-radius: 8px;
-  color: var(--vp-c-text-2);
-  background: var(--vp-c-default-soft);
   font-family: var(--vp-font-family-mono);
-  font-size: 12px;
+  font-size: 0.8125rem;
 }
-.material-state {
-  padding: 5px 9px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 700;
+.course-heading {
+  margin-bottom: 24px;
 }
-.material-state.ready {
-  color: var(--vp-c-green-1);
-  background: var(--vp-c-green-soft);
-}
-.material-state.empty {
-  color: var(--vp-c-text-3);
-  background: var(--vp-c-default-soft);
-}
-.detail-hero h1 {
-  margin: 18px 0 8px;
-  border: 0;
-  font-size: clamp(34px, 5vw, 54px);
-  line-height: 1.08;
-  letter-spacing: -0.035em;
-}
-.aliases {
-  margin: 0 0 18px;
-  color: var(--vp-c-text-2);
-}
-.hero-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 7px;
-}
-.hero-meta span {
-  padding: 5px 9px;
-  border: 1px solid var(--vp-c-divider);
-  border-radius: 999px;
-  color: var(--vp-c-text-2);
-  font-size: 12px;
-}
-.resource-meter {
-  display: flex;
-  min-height: 140px;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  border-radius: 20px;
-  color: var(--vp-c-brand-1);
-  background: var(--vp-c-brand-soft);
-  text-align: center;
-}
-.resource-meter strong {
-  font-size: 36px;
-  line-height: 1;
-}
-.resource-meter span {
-  margin-top: 6px;
-  font-size: 12px;
-  font-weight: 700;
-}
-.resource-meter small {
-  margin-top: 14px;
-  color: var(--vp-c-text-2);
-}
-.info-section {
-  margin-top: 48px;
-}
-.info-section > header {
-  margin-bottom: 18px;
-}
-.info-section > header p {
-  margin: 0 0 5px;
-  color: var(--vp-c-brand-1);
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.16em;
-}
-.info-section > header h2 {
+.course-heading h1 {
   margin: 0;
-  border: 0;
-  font-size: 25px;
+  font-size: 32px;
+  font-weight: 600;
+  line-height: 1.35;
+  letter-spacing: -0.02em;
 }
-.info-grid {
+.course-highlights {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
-  margin: 0;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  align-items: start;
+  gap: 12px;
+  margin: 0 0 28px;
 }
-.info-grid div {
-  padding: 17px;
+.info-card {
+  min-width: 0;
+  height: 100%;
+  padding: 14px 16px;
   border: 1px solid var(--vp-c-divider);
-  border-radius: 15px;
+  border-radius: 8px;
   background: var(--vp-c-bg-soft);
 }
-.info-grid dt {
-  color: var(--vp-c-text-3);
-  font-size: 11px;
+.info-card dt {
+  color: var(--vp-c-text-2);
+  font-size: 12px;
 }
-.info-grid dd {
-  margin: 7px 0 0;
-  font-weight: 700;
+.info-card dd {
+  margin: 5px 0 0;
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1.5;
 }
-.major-table-wrap {
-  overflow-x: auto;
-  border: 1px solid var(--vp-c-divider);
-  border-radius: 16px;
+.info-card-wide {
+  grid-column: span 2;
 }
-.major-table {
-  width: 100%;
-  border-collapse: collapse;
+.info-card-wide dd {
   font-size: 14px;
 }
-.major-table th,
-.major-table td {
-  padding: 13px 16px;
-  border-bottom: 1px solid var(--vp-c-divider);
-  text-align: left;
+.info-card .category-label {
+  display: inline;
+  margin-right: 6px;
 }
-.major-table th {
+.info-card .category-value {
+  display: inline;
   color: var(--vp-c-text-2);
-  background: var(--vp-c-bg-soft);
   font-size: 12px;
+  font-weight: 400;
 }
-.major-table tbody tr:last-child td {
-  border-bottom: 0;
-}
-.repository-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 13px;
-}
-.repository-card {
-  display: flex;
-  flex-direction: column;
-  padding: 20px;
-  border: 1px solid var(--vp-c-divider);
-  border-radius: 18px;
-  background: var(--vp-c-bg-soft);
-}
-.repo-label {
-  color: var(--vp-c-brand-1);
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.12em;
-}
-.repository-card h3 {
-  margin: 7px 0 4px;
-  border: 0;
+.resources-section h2 {
+  margin: 0 0 16px;
   font-size: 18px;
+  font-weight: 600;
+  line-height: 1.5;
 }
-.repository-card p {
-  margin: 0;
+.materials-empty {
+  padding: 32px 20px;
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 8px;
+  text-align: center;
+  font-size: 14px;
+}
+.materials-empty p {
+  margin: 0 0 8px;
   color: var(--vp-c-text-2);
-  font-size: 12px;
 }
-.category-list {
+.material-sources {
+  display: flex;
+  align-items: baseline;
+  gap: 8px 12px;
+  margin-top: 12px;
+  color: var(--vp-c-text-2);
+  font-size: 13px;
+}
+.material-sources > span {
+  flex-shrink: 0;
+}
+.material-sources ul {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  margin: 18px 0;
+  gap: 4px 16px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
-.category-list span {
-  padding: 4px 7px;
-  border-radius: 6px;
-  color: var(--vp-c-text-2);
-  background: var(--vp-c-default-soft);
-  font-size: 11px;
-}
-.repository-card a {
-  margin-top: auto;
-  padding-top: 16px;
+.course-supplement {
+  margin-top: 32px;
   border-top: 1px solid var(--vp-c-divider);
-  color: var(--vp-c-brand-1);
-  font-weight: 700;
-  text-decoration: none;
 }
-.contribution-callout {
-  display: flex;
-  justify-content: space-between;
-  gap: 20px;
-  align-items: center;
-  padding: 22px;
-  border: 1px dashed var(--vp-c-divider);
-  border-radius: 18px;
+.course-disclosure {
+  border-bottom: 1px solid var(--vp-c-divider);
+}
+.course-disclosure summary {
+  padding: 16px 0;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.course-disclosure summary::marker {
+  color: var(--vp-c-text-3);
+  font-size: 0.75em;
+}
+.curriculum-table {
+  width: 100%;
+  margin: 0 0 20px;
+  border-collapse: collapse;
+  table-layout: fixed;
+  text-align: left;
+  font-size: 14px;
+}
+.curriculum-table th,
+.curriculum-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--vp-c-divider);
+  vertical-align: top;
+}
+.curriculum-table th {
+  color: var(--vp-c-text-2);
   background: var(--vp-c-bg-soft);
+  font-weight: 500;
 }
-.contribution-callout strong {
-  display: block;
+.curriculum-table tbody tr:last-child td {
+  border-bottom: 0;
 }
-.contribution-callout p {
-  margin: 4px 0 0;
+.arrangements-empty {
+  margin: 0 0 20px;
   color: var(--vp-c-text-2);
+  font-size: 14px;
 }
-.contribution-callout a {
-  padding: 10px 14px;
-  border-radius: 10px;
-  color: white;
-  background: var(--vp-c-brand-1);
-  text-decoration: none;
-  white-space: nowrap;
-}
-.section-empty {
-  color: var(--vp-c-text-2);
-}
-.detail-footer {
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
-  margin-top: 54px;
-  padding-top: 22px;
-  border-top: 1px solid var(--vp-c-divider);
-}
-.detail-footer a {
-  color: var(--vp-c-brand-1);
-  font-weight: 700;
-  text-decoration: none;
-}
-@media (max-width: 700px) {
+@media (max-width: 600px) {
   .course-detail {
-    padding: 18px 14px 60px;
+    padding: 24px 16px 48px;
   }
-  .detail-hero {
-    grid-template-columns: 1fr;
-    padding: 22px;
+  .course-heading {
+    margin-bottom: 24px;
   }
-  .resource-meter {
-    min-height: 100px;
+  .course-heading h1 {
+    font-size: 26px;
   }
-  .info-grid,
-  .repository-grid {
-    grid-template-columns: 1fr;
+  .course-highlights {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin-bottom: 24px;
   }
-  .contribution-callout,
-  .detail-footer {
-    align-items: stretch;
-    flex-direction: column;
+  .info-card {
+    padding: 12px;
   }
-  .contribution-callout a {
-    text-align: center;
+  .curriculum-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  .curriculum-table tbody,
+  .curriculum-table tr,
+  .curriculum-table td {
+    display: block;
+  }
+  .curriculum-table tr {
+    padding: 12px 0;
+    border-top: 1px solid var(--vp-c-divider);
+  }
+  .curriculum-table td {
+    display: grid;
+    grid-template-columns: 5rem minmax(0, 1fr);
+    gap: 12px;
+    padding: 3px 0;
+    border: 0;
+  }
+  .curriculum-table td::before {
+    content: attr(data-label);
+    color: var(--vp-c-text-2);
   }
 }
 </style>

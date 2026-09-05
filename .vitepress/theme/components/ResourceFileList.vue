@@ -3,8 +3,8 @@ import { computed, ref, watch } from "vue";
 import Button from "primevue/button";
 import Column from "primevue/column";
 import Dialog from "primevue/dialog";
-import Fieldset from "primevue/fieldset";
-import FloatLabel from "primevue/floatlabel";
+import IconField from "primevue/iconfield";
+import InputIcon from "primevue/inputicon";
 import InputText from "primevue/inputtext";
 import Message from "primevue/message";
 import TreeTable from "primevue/treetable";
@@ -93,7 +93,10 @@ function displayPathParts(file: CourseDetailFile): string[] {
     ) {
       continue;
     }
-    pushDistinct(result, isFileName ? part : (DIRECTORY_LABELS[part] ?? part));
+    if (isFileName) result.push(part);
+    else if (part !== "电子教材" || result.at(-1) !== "教材") {
+      pushDistinct(result, DIRECTORY_LABELS[part] ?? part);
+    }
   }
   return result.length ? result : [file.name];
 }
@@ -227,11 +230,25 @@ function collectFolderKeys(
   return result;
 }
 
-watch(fileTree, (tree) => {
-  if (query.value.trim()) expandedKeys.value = collectFolderKeys(tree);
-});
+let expandedBeforeSearch: Record<string, boolean> | undefined;
 
-const fieldsetLegend = computed(() =>
+watch(
+  fileTree,
+  (tree, previous) => {
+    if (query.value.trim()) {
+      expandedBeforeSearch ??= { ...expandedKeys.value };
+      expandedKeys.value = collectFolderKeys(tree);
+    } else if (expandedBeforeSearch) {
+      expandedKeys.value = expandedBeforeSearch;
+      expandedBeforeSearch = undefined;
+    } else if (!previous && props.files.length <= 24) {
+      expandedKeys.value = collectFolderKeys(tree);
+    }
+  },
+  { immediate: true },
+);
+
+const fileSummary = computed(() =>
   query.value.trim()
     ? `${filteredFiles.value.length} / ${props.files.length} 个文件`
     : `${props.files.length} 个文件`,
@@ -242,13 +259,13 @@ const downloadOptions = computed<DownloadOption[]>(() => {
   return [
     {
       name: "站内加速",
-      description: "自动选择当前可用的下载节点，适合大多数网络环境。",
+      description: "自动选择可用的下载节点。",
       icon: "pi pi-bolt",
       href: repositorySiteDownloadUrl(selectedFile.value),
     },
     {
       name: "直连代理",
-      description: "绕过本站 CDN；站内加速不稳定时可以尝试。",
+      description: "直接使用代理节点，作为备用线路。",
       icon: "pi pi-external-link",
       href: repositoryRawUrl(selectedFile.value),
     },
@@ -292,120 +309,115 @@ function readableBytes(bytes: number): string {
 
 <template>
   <div class="resource-browser">
-    <FloatLabel variant="on" class="resource-search">
-      <InputText
-        id="course_resource_search"
-        v-model="query"
-        type="search"
-        autocomplete="off"
-        fluid
-      />
-      <label for="course_resource_search">搜索文件名</label>
-    </FloatLabel>
+    <div class="resource-toolbar">
+      <IconField class="resource-search">
+        <InputIcon class="pi pi-search" />
+        <InputText
+          id="course_resource_search"
+          v-model="query"
+          type="search"
+          size="small"
+          placeholder="搜索文件或目录"
+          aria-label="搜索课程资料"
+          autocomplete="off"
+          fluid
+        />
+      </IconField>
+      <span class="file-summary" role="status">{{ fileSummary }}</span>
+    </div>
 
-    <Fieldset
-      :legend="fieldsetLegend"
-      class="resource-list-container"
-      :pt="{
-        contentContainer: {
-          style: {
-            width: '100%',
-            contain: 'inline-size',
-            overflow: 'auto',
-          },
-        },
-      }"
+    <TreeTable
+      v-if="fileTree.length"
+      v-model:expanded-keys="expandedKeys"
+      :value="fileTree"
+      class="resource-tree"
+      size="small"
+      aria-label="课程资料文件"
     >
-      <TreeTable
-        v-if="fileTree.length"
-        v-model:expanded-keys="expandedKeys"
-        :value="fileTree"
-        class="resource-tree"
-        size="small"
-        scrollable
-      >
-        <Column expander :style="{ width: '3.25rem' }">
-          <template #body="{ node }">
-            <Button
-              v-if="node.data.isDirectory"
-              :icon="isExpanded(node) ? 'pi pi-folder-open' : 'pi pi-folder'"
-              variant="text"
-              severity="secondary"
-              rounded
-              size="small"
-              :aria-label="
-                isExpanded(node)
-                  ? `收起文件夹 ${node.data.name}`
-                  : `展开文件夹 ${node.data.name}`
-              "
-              @click="toggleFolder(node)"
-            />
+      <Column field="name" header="文件名" expander sortable>
+        <template #body="{ node }">
+          <button
+            type="button"
+            class="entry-name"
+            :class="{ 'entry-folder': node.data.isDirectory }"
+            :title="node.data.path"
+            :aria-expanded="
+              node.data.isDirectory ? isExpanded(node) : undefined
+            "
+            @click="
+              node.data.isDirectory
+                ? toggleFolder(node)
+                : openDownloadDialog(node.data.file)
+            "
+          >
             <i
-              v-else
-              :class="['resource-file-icon', node.icon]"
+              :class="
+                node.data.isDirectory
+                  ? isExpanded(node)
+                    ? 'pi pi-folder-open'
+                    : 'pi pi-folder'
+                  : node.icon
+              "
               aria-hidden="true"
             />
-          </template>
-        </Column>
-        <Column
-          field="name"
-          header="文件名"
-          sortable
-          :style="{ minWidth: '15rem' }"
-        >
-          <template #body="{ node }">
-            <span class="resource-file-name" :title="node.data.path">
-              {{ node.data.name }}
+            <span class="entry-text">
+              <span>{{ node.data.name }}</span>
+              <small v-if="node.data.file" class="mobile-file-size">{{
+                readableBytes(node.data.size)
+              }}</small>
             </span>
-          </template>
-        </Column>
-        <Column
-          field="type"
-          header="资料类型"
-          sortable
-          :style="{ minWidth: '7rem' }"
-        >
-          <template #body="{ node }">
-            <span class="resource-file-type">{{ node.data.type }}</span>
-          </template>
-        </Column>
-        <Column
-          field="size"
-          header="文件大小"
-          sortable
-          :style="{ minWidth: '7rem' }"
-        >
-          <template #body="{ node }">
-            <span class="resource-file-size">{{
-              readableBytes(node.data.size)
-            }}</span>
-          </template>
-        </Column>
-        <Column header="下载" :style="{ width: '5rem' }">
-          <template #body="{ node }">
-            <Button
-              v-if="node.data.file"
-              icon="pi pi-download"
-              severity="secondary"
-              rounded
-              size="small"
-              :aria-label="`下载 ${node.data.name}`"
-              @click="openDownloadDialog(node.data.file)"
-            />
-          </template>
-        </Column>
-      </TreeTable>
-
-      <Message v-else severity="secondary" variant="simple">
-        没有找到匹配的文件。
-      </Message>
-    </Fieldset>
+          </button>
+        </template>
+      </Column>
+      <Column
+        field="size"
+        header="大小"
+        sortable
+        header-class="resource-size-column"
+        body-class="resource-size-column"
+      >
+        <template #body="{ node }">
+          <span v-if="node.data.file" class="file-size">{{
+            readableBytes(node.data.size)
+          }}</span>
+        </template>
+      </Column>
+      <Column
+        header="下载"
+        header-class="resource-action-column"
+        body-class="resource-action-column"
+      >
+        <template #body="{ node }">
+          <Button
+            v-if="node.data.file"
+            icon="pi pi-download"
+            severity="secondary"
+            variant="text"
+            size="small"
+            :aria-label="`下载 ${node.data.name}`"
+            @click="openDownloadDialog(node.data.file)"
+          />
+        </template>
+      </Column>
+    </TreeTable>
+    <div v-else class="resource-empty">
+      <Message severity="secondary" variant="simple"
+        >没有找到匹配的文件</Message
+      >
+      <Button
+        v-if="query"
+        label="清空搜索"
+        variant="text"
+        size="small"
+        @click="query = ''"
+      />
+    </div>
 
     <Dialog
       v-model:visible="downloadDialogVisible"
       modal
-      header="选择下载线路"
-      :style="{ width: '22rem', maxWidth: 'calc(100vw - 2rem)' }"
+      header="下载文件"
+      :style="{ width: '24rem', maxWidth: 'calc(100vw - 2rem)' }"
     >
       <p class="download-file-name">{{ selectedFile?.name }}</p>
       <div class="download-sources">
@@ -421,11 +433,9 @@ function readableBytes(bytes: number): string {
           class="download-source"
           @click="downloadDialogVisible = false"
         >
+          <i :class="source.icon" aria-hidden="true" />
           <span class="download-source-content">
-            <span class="download-source-title">
-              <i :class="source.icon" aria-hidden="true" />
-              <strong>{{ source.name }}</strong>
-            </span>
+            <strong>{{ source.name }}</strong>
             <small>{{ source.description }}</small>
           </span>
         </Button>
@@ -436,148 +446,155 @@ function readableBytes(bytes: number): string {
 
 <style scoped>
 .resource-browser {
+  min-width: 0;
+}
+.resource-toolbar {
   display: flex;
-  width: 100%;
-  flex-direction: column;
-  align-items: flex-end;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
   gap: 0.75rem;
+  margin-bottom: 1rem;
 }
-
 .resource-search {
-  width: min(100%, 20rem);
+  flex: 1 1 14rem;
+  max-width: 22rem;
+  min-width: 0;
 }
-
-.resource-list-container.p-fieldset {
-  width: 100%;
-  padding: 0;
-  overflow: hidden;
-}
-
-.resource-list-container :deep(.p-fieldset-legend) {
-  position: relative;
-  z-index: 2;
-  margin-bottom: -19.5px;
-  margin-left: 1.125rem;
-  border: none;
-  background: linear-gradient(
-    to bottom,
-    var(--p-fieldset-legend-background) 51%,
-    transparent 51%
-  );
-}
-
-.resource-list-container :deep(.p-treetable-table) {
-  display: table;
-  min-width: 38rem;
-  margin: unset;
-  border-collapse: separate;
-}
-
-.resource-list-container :deep(.p-treetable-table tr) {
-  border-top: unset;
-  background-color: unset;
-  transition: unset;
-}
-
-.resource-list-container :deep(.p-treetable-header-cell) {
-  padding: var(--p-treetable-header-cell-padding);
-  border-width: 0 0 1px;
-  border-style: solid;
-  border-color: var(--p-treetable-header-cell-border-color);
-  color: var(--p-treetable-header-cell-color);
-  background: var(--p-treetable-header-cell-background);
-  font-weight: normal;
-  text-align: start;
-}
-
-.resource-list-container :deep(.p-treetable-tbody > tr) {
-  color: var(--p-treetable-row-color);
-  background: var(--p-treetable-row-background);
-  outline-color: transparent;
-  transition:
-    background var(--p-treetable-transition-duration),
-    color var(--p-treetable-transition-duration),
-    border-color var(--p-treetable-transition-duration),
-    outline-color var(--p-treetable-transition-duration),
-    box-shadow var(--p-treetable-transition-duration);
-}
-
-.resource-list-container :deep(.p-treetable-node-toggle-button) {
-  width: 0 !important;
-  margin-right: -0.5rem;
-  visibility: hidden !important;
-}
-
-.resource-file-icon {
-  display: inline-flex;
-  width: var(--p-button-sm-icon-only-width);
-  justify-content: center;
+.file-summary,
+.file-size {
   color: var(--vp-c-text-2);
-}
-
-.resource-file-name {
-  display: block;
-  overflow-wrap: anywhere;
-  color: var(--vp-c-text-1);
-}
-
-.resource-file-type,
-.resource-file-size {
-  color: var(--vp-c-text-2);
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
-
-.download-file-name {
-  margin: 0 0 0.875rem;
-  overflow-wrap: anywhere;
-  color: var(--vp-c-text-2);
-  font-size: 0.875rem;
+.resource-tree {
+  overflow: hidden;
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 8px;
 }
-
+.resource-tree :deep(.p-treetable-table) {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+}
+.resource-tree :deep(.p-treetable-header-cell) {
+  background: var(--vp-c-bg-soft);
+  color: var(--vp-c-text-2);
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+.resource-tree :deep(.p-treetable-body-cell-content-expander) {
+  min-width: 0;
+}
+.resource-tree :deep(.resource-size-column) {
+  width: 7.5rem;
+}
+.resource-tree :deep(.resource-action-column) {
+  width: 4.5rem;
+  text-align: center;
+}
+.resource-tree
+  :deep(.resource-action-column .p-treetable-column-header-content),
+.resource-tree :deep(.resource-action-column .p-treetable-body-cell-content) {
+  justify-content: center;
+}
+.resource-tree :deep(.p-treetable-node-toggle-button) {
+  flex-shrink: 0;
+}
+.entry-name {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.375rem 0;
+  border: 0;
+  color: var(--vp-c-text-1);
+  background: none;
+  font: inherit;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  text-align: left;
+  cursor: pointer;
+}
+.entry-name > i {
+  flex-shrink: 0;
+  color: var(--vp-c-text-3);
+  font-size: 1rem;
+}
+.entry-folder {
+  font-weight: 500;
+}
+.entry-name:hover {
+  color: var(--vp-c-brand-1);
+}
+.entry-name:focus-visible {
+  outline: 2px solid var(--vp-c-brand-1);
+  outline-offset: 3px;
+  border-radius: 3px;
+}
+.entry-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.mobile-file-size {
+  display: none;
+}
+.resource-empty {
+  display: grid;
+  justify-items: center;
+  gap: 0.5rem;
+  padding: 2.5rem 1rem;
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 8px;
+}
+.download-file-name {
+  margin: 0 0 1rem;
+  color: var(--vp-c-text-2);
+  overflow-wrap: anywhere;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
 .download-sources {
   display: grid;
-  gap: 0.625rem;
+  gap: 0.75rem;
 }
-
 .download-source {
   width: 100%;
   justify-content: flex-start;
-  padding-block: 0.75rem;
-  text-decoration: none !important;
+  gap: 0.875rem;
+  padding: 0.875rem;
+  text-decoration: none;
 }
-
-.download-source-content,
-.download-source-title {
-  display: flex;
-}
-
 .download-source-content {
-  min-width: 0;
-  flex-direction: column;
-  align-items: flex-start;
+  display: grid;
   gap: 0.25rem;
+  min-width: 0;
   text-align: left;
-}
-
-.download-source-title {
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.download-source-content small {
-  color: var(--vp-c-text-2);
-  font-weight: normal;
-  line-height: 1.45;
   white-space: normal;
 }
-
-@media (max-width: 640px) {
+.download-source-content small {
+  color: var(--vp-c-text-2);
+  font-weight: 400;
+  line-height: 1.5;
+}
+@media (max-width: 600px) {
   .resource-search {
-    width: 100%;
+    max-width: none;
   }
-
-  .resource-list-container :deep(.p-treetable-table) {
-    min-width: 34rem;
+  .resource-tree :deep(.resource-size-column) {
+    display: none;
+  }
+  .resource-tree :deep(.resource-action-column) {
+    width: 3.5rem;
+  }
+  .mobile-file-size {
+    display: block;
+    margin-top: 0.125rem;
+    color: var(--vp-c-text-2);
+    font-size: 0.75rem;
+    font-weight: 400;
   }
 }
 </style>
