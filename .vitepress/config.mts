@@ -1,14 +1,24 @@
 import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "vitepress";
 import { generateSidebar } from "vitepress-sidebar";
+import { courseCatalogDeliveryPlugin } from "./theme/course-catalog-delivery";
+import { execFileSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
   title: "薪火笔记社",
   description: "用一门笔记改变一门课，期末考研竞赛科研社团都涉及的超好用HIT笔记网站！",
   head: [["link", { rel: "icon", href: "/logo.png" }]],
+  buildConcurrency: 8,
   vite: {
-    plugins: [tailwindcss()],
+    plugins: [tailwindcss(), courseCatalogDeliveryPlugin()],
+  },
+  buildEnd(siteConfig) {
+    execFileSync("bun", [fileURLToPath(new URL("../scripts/write-course-catalog-client.mts", import.meta.url)), siteConfig.outDir], {
+      cwd: siteConfig.srcDir,
+      stdio: "inherit",
+    });
   },
   themeConfig: {
     // https://vitepress.dev/reference/default-theme-config

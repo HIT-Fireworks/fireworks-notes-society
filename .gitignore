@@ -1,5 +1,6 @@
 /.vitepress/cache
 /.vitepress/dist
+/.vitepress/.temp
 /node_modules/
 /.worktrees/
 /.workspaces/

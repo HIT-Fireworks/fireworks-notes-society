@@ -39,20 +39,20 @@ fireworks-notes-society/
 
 ## 课程中心
 
-网站新增 `/courses/` 课程中心，数据由构建时深模块统一聚合，不会让浏览器直接加载完整管理快照。
+`/courses/` 课程中心在构建时聚合完整课程数据，浏览器不会直接加载管理快照。
 
 课程中心提供两种查看模式：
 
-1. **我的培养方案**：按年级、培养学院、专业逐级选择，再按学年和学期浏览课程，使用方式参考 HOA；
+1. **我的教学计划**：先选择培养方案或执行教学计划，再按方案版本或入学年级、培养学院、完整专业身份和学期浏览；方案版本不等同于入学年级；
 2. **直接找课程**：按课程名称、课程代码、别名、开课学院、培养学院、推荐学期和资料状态组合检索。
 
 每个课程代码都有稳定的 `/courses/<课程代码>` 页面，展示课程基本信息、覆盖专业与推荐学期、资料数量/分类/容量及 GitHub 课程仓库入口。没有资料的课程也保留在目录中，方便后续贡献。
 
-当前构建数据包含 211 个培养方案、2,618 个课程代码、8,509 条有代码课程记录，其中 323 门课程已有资料。`/lessons` 继续保留原有 OpenList 资料下载入口。
+当前数据包含 4,613 份培养方案及执行教学计划、16,431 个课程代码、226,560 条原始记录，其中 224,601 条有代码课程安排发布到所属方案文件，323 门课程已有资料。没有代码的原始记录仍完整保留在管理数据中。`/lessons` 继续保留原有 OpenList 资料下载入口。
 
 课程目录维护：
 
-- 权威数据：`data/repository-manifest.no-collection.v4.json` 与 `config/repository-file-routes.v4.json`；
+- 权威数据：`data/repository-manifest.no-collection.v4.json`、同目录的 `.fireworks-json` 分片与 `config/repository-file-routes.v4.json`；根文件和分片必须一起更新，读取时核验 SHA-256 和字节数；
 - 聚合逻辑：`.vitepress/theme/course-catalog.ts`；
 - 中心组件：`.vitepress/theme/components/CourseExplorer.vue`；
 - 课程详情组件：`.vitepress/theme/components/CourseDetail.vue`；
@@ -60,7 +60,7 @@ fireworks-notes-society/
 - 数据契约测试：`bun run test:courses`；
 - 完整构建：`bun run docs:build`。
 
-课程组件采用页面局部加载，目录数据不会进入所有站点页面的公共主题资源。构建会为当前全部课程生成静态详情页；数据更新后重新构建即可同步页面。
+构建为全部课程生成完整静态详情页，逐页读取课程数据以避免把全量详情重复编入页面模块；课程中心按所选教学计划加载课程安排。原始清单在渲染前释放，最终 JSON 在独立进程中发布。Tailwind 仅扫描页面和主题源码，不扫描管理数据或构建产物。数据更新后运行 `bun run docs:build`，即可生成完整页面、方案文件及交互脚本。
 
 ## 资料入口与旧页面
 

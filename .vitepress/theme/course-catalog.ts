@@ -1,17 +1,23 @@
-import fs from "node:fs";
 import path from "node:path";
+import { readManifestJson } from "./manifest-store";
 import {
   repositoryFileEntries,
   type RepositoryFileEntry,
 } from "./repository-resources";
 
+export type CoursePlanSourceKind = "curriculum" | "execution";
+
 export interface CourseCatalogPlan {
   id: string;
-  year: string;
-  version: string;
+  sourceKind: CoursePlanSourceKind;
+  entryCohort: string;
+  planVersion: string;
+  departmentCode: string;
   school: string;
   majorCode: string;
   majorName: string;
+  majorFullName: string;
+  programType: string;
   terms: string[];
 }
 
@@ -29,9 +35,13 @@ export interface CourseCatalogCourse {
 }
 
 export interface CourseCatalogOccurrence {
+  id: string;
   planId: string;
   courseCode: string;
   term: string;
+  sourceSection?: string;
+  moduleId?: string;
+  directionKey?: string;
   credit?: number;
   totalHours?: number;
   assessmentMethod?: string;
@@ -41,7 +51,8 @@ export interface CourseCatalogOccurrence {
 }
 
 export interface CourseCatalogIndex {
-  years: string[];
+  entryCohorts: string[];
+  planVersions: string[];
   schools: string[];
   offeringColleges: string[];
   terms: string[];
@@ -58,13 +69,33 @@ export interface CourseDetailFile {
   size: number;
 }
 
+export interface CourseDetailPlan {
+  id: string;
+  sourceKind: CoursePlanSourceKind;
+  entryCohort: string;
+  planVersion: string;
+  departmentCode: string;
+  majorCode: string;
+  majorName: string;
+  majorFullName: string;
+  programType: string;
+  school: string;
+}
+
 export interface CourseDetailData extends CourseCatalogCourse {
   credits: string[];
   totalHours: string[];
   assessmentMethods: string[];
   courseNatures: string[];
   courseCategories: string[];
-  majors: Array<{ school: string; major: string; term: string }>;
+  majors: Array<{
+    planIndex: number;
+    occurrenceId: string;
+    term: string;
+    sourceSection?: string;
+    moduleId?: string;
+    directionKey?: string;
+  }>;
   repositories: Array<{
     repoId: string;
     displayName: string;
@@ -76,22 +107,30 @@ export interface CourseDetailData extends CourseCatalogCourse {
   files: CourseDetailFile[];
 }
 
+export interface CourseDetailCatalog {
+  plans: CourseDetailPlan[];
+  courses: Record<string, CourseDetailData>;
+}
+
+export interface CourseDetailPage {
+  course: CourseDetailData;
+  plans: CourseDetailPlan[];
+}
+
 type JsonObject = Record<string, unknown>;
 
-interface ManifestData {
+export interface CourseCatalogManifestData {
   curriculum_plans: JsonObject[];
   curriculum_records: JsonObject[];
   course_descriptors: JsonObject[];
   repositories: JsonObject[];
 }
 
-interface CatalogSource {
-  manifest: ManifestData;
-}
 
-let sourceCache: CatalogSource | undefined;
+let sourceCache: WeakRef<CourseCatalogManifestData> | undefined;
 let indexCache: CourseCatalogIndex | undefined;
 let detailCache: Map<string, CourseDetailData> | undefined;
+let resourceCache: RepositoryFileEntry[] | undefined;
 
 const root = path.resolve(import.meta.dirname, "../..");
 const manifestPath = path.join(
@@ -100,21 +139,31 @@ const manifestPath = path.join(
 );
 const routesPath = path.join(root, "config/repository-file-routes.v4.json");
 
-function readJson<T>(file: string): T {
-  return JSON.parse(fs.readFileSync(file, "utf8")) as T;
-}
-
-function source(): CatalogSource {
-  if (!sourceCache) {
-    sourceCache = {
-      manifest: readJson<ManifestData>(manifestPath),
-    };
+function source(): CourseCatalogManifestData {
+  const manifest = readManifestJson<CourseCatalogManifestData>(manifestPath);
+  if (sourceCache?.deref() !== manifest) {
+    sourceCache = new WeakRef(manifest);
+    indexCache = undefined;
+    detailCache = undefined;
+    detailPlanCache = undefined;
   }
-  return sourceCache;
+  return manifest;
 }
 
 function text(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function scalarText(value: unknown): string {
+  return typeof value === "string" || typeof value === "number"
+    ? String(value).trim()
+    : "";
+}
+
+function object(value: unknown): JsonObject | undefined {
+  return value !== null && typeof value === "object" && !Array.isArray(value)
+    ? (value as JsonObject)
+    : undefined;
 }
 
 function number(value: unknown): number | undefined {
@@ -180,22 +229,39 @@ function fileCategory(routeKind: string, filePath: string): string {
   return "其他资料";
 }
 
-function aggregate(): {
+export function buildCourseCatalog(
+  manifest: CourseCatalogManifestData,
+  resourceFiles: RepositoryFileEntry[] = [],
+): {
   index: CourseCatalogIndex;
   details: Map<string, CourseDetailData>;
+  detailPlans: CourseDetailPlan[];
 } {
-  const { manifest } = source();
   const plansById = new Map<string, CourseCatalogPlan>();
   for (const raw of manifest.curriculum_plans) {
     const id = text(raw.plan_id);
     if (!id) continue;
+    const rawSourceKind = text(raw.source_kind);
+    if (
+      rawSourceKind &&
+      rawSourceKind !== "curriculum" &&
+      rawSourceKind !== "execution"
+    ) {
+      throw new Error(`教学计划 ${id} 的来源类型无效：${rawSourceKind}`);
+    }
+    const sourceKind: CoursePlanSourceKind =
+      rawSourceKind === "execution" ? "execution" : "curriculum";
     plansById.set(id, {
       id,
-      year: text(raw.year),
-      version: text(raw.plan_version),
+      sourceKind,
+      entryCohort: sourceKind === "execution" ? text(raw.entry_cohort) : "",
+      planVersion: sourceKind === "curriculum" ? text(raw.plan_version) : "",
+      departmentCode: text(raw.department_code),
       school: text(raw.school_name),
       majorCode: text(raw.major_code),
       majorName: text(raw.major_name),
+      majorFullName: text(raw.major_full_name),
+      programType: text(raw.program_type),
       terms: [],
     });
   }
@@ -214,7 +280,7 @@ function aggregate(): {
 
   const filesByCode = new Map<string, RepositoryFileEntry[]>();
   const filesByRepo = new Map<string, RepositoryFileEntry[]>();
-  for (const file of repositoryFileEntries()) {
+  for (const file of resourceFiles) {
     const repoId = file.repoId;
     if (repoId) {
       const current = filesByRepo.get(repoId) ?? [];
@@ -229,6 +295,8 @@ function aggregate(): {
   }
 
   const occurrences: CourseCatalogOccurrence[] = [];
+  const occurrenceIds = new Set<string>();
+  const occurrenceByRecord = new Map<JsonObject, CourseCatalogOccurrence>();
   const recordsByCode = new Map<string, JsonObject[]>();
   for (const record of manifest.curriculum_records) {
     const planId = text(record.source_plan);
@@ -236,17 +304,42 @@ function aggregate(): {
     const term = text(record.recommended_year_semester) || "未标注学期";
     if (planId) plansById.get(planId)?.terms.push(term);
     if (!code) continue;
-    occurrences.push({
+    if (!planId || !plansById.has(planId)) {
+      throw new Error(`课程记录 ${code} 引用了不存在的方案 ${planId || "(空)"}`);
+    }
+    const sourceSection = text(record.source_section);
+    const sourceOrdinal = scalarText(record.source_ordinal);
+    const recordId = text(record.record_id);
+    if (!recordId && !sourceOrdinal) {
+      throw new Error(
+        `旧课程记录 ${planId}/${sourceSection || "来源区域未标注"}/${code} 缺少 record_id 和 source_ordinal，无法构造稳定身份`,
+      );
+    }
+    const occurrenceId =
+      recordId ||
+      `legacy:${encodeURIComponent(planId)}:${encodeURIComponent(sourceSection)}:${encodeURIComponent(sourceOrdinal)}`;
+    if (occurrenceIds.has(occurrenceId)) {
+      throw new Error(`课程记录 ID 重复：${occurrenceId}`);
+    }
+    occurrenceIds.add(occurrenceId);
+    const relation = object(record.relation);
+    const occurrence: CourseCatalogOccurrence = {
+      id: occurrenceId,
       planId,
       courseCode: code,
       term,
+      sourceSection: sourceSection || undefined,
+      moduleId: text(relation?.module_id) || undefined,
+      directionKey: text(relation?.direction_key) || undefined,
       credit: number(record.credit),
       totalHours: number(record.total_hours),
       assessmentMethod: text(record.assessment_method) || undefined,
       courseNature: text(record.course_nature) || undefined,
       courseCategory: text(record.course_category) || undefined,
       offeringCollege: text(record.offering_college) || undefined,
-    });
+    };
+    occurrences.push(occurrence);
+    occurrenceByRecord.set(record, occurrence);
     const current = recordsByCode.get(code) ?? [];
     current.push(record);
     recordsByCode.set(code, current);
@@ -260,6 +353,29 @@ function aggregate(): {
   ]);
   const courses: CourseCatalogCourse[] = [];
   const details = new Map<string, CourseDetailData>();
+  const detailPlans: CourseDetailPlan[] = Array.from(plansById.values())
+    .map((plan) => ({
+      id: plan.id,
+      sourceKind: plan.sourceKind,
+      entryCohort: plan.entryCohort,
+      planVersion: plan.planVersion,
+      departmentCode: plan.departmentCode,
+      majorCode: plan.majorCode,
+      majorName: plan.majorName,
+      majorFullName: plan.majorFullName,
+      programType: plan.programType,
+      school: plan.school,
+    }))
+    .sort(
+      (a, b) =>
+        a.school.localeCompare(b.school, "zh-CN") ||
+        a.majorName.localeCompare(b.majorName, "zh-CN") ||
+        a.majorCode.localeCompare(b.majorCode) ||
+        a.id.localeCompare(b.id),
+    );
+  const detailPlanIndex = new Map(
+    detailPlans.map((plan, index) => [plan.id, index]),
+  );
   for (const code of codes) {
     const descriptor = descriptorByCode.get(code);
     const records = recordsByCode.get(code) ?? [];
@@ -294,36 +410,35 @@ function aggregate(): {
         ),
       };
     });
+    const majors = records
+      .map((record) => {
+        const occurrence = occurrenceByRecord.get(record);
+        const planIndex = occurrence
+          ? detailPlanIndex.get(occurrence.planId)
+          : undefined;
+        return occurrence && planIndex !== undefined
+          ? {
+              planIndex,
+              occurrenceId: occurrence.id,
+              term: occurrence.term,
+              sourceSection: occurrence.sourceSection,
+              moduleId: occurrence.moduleId,
+              directionKey: occurrence.directionKey,
+            }
+          : undefined;
+      })
+      .filter((item): item is NonNullable<typeof item> => Boolean(item))
+      .sort(
+        (a, b) =>
+          a.planIndex - b.planIndex ||
+          semesterOrder(a.term) - semesterOrder(b.term) ||
+          a.occurrenceId.localeCompare(b.occurrenceId),
+      );
     const names = unique([
       text(descriptor?.course_name),
       ...records.map((record) => text(record.course_name)),
     ]);
     const name = text(descriptor?.course_name) || names[0] || code;
-    const majors = Array.from(
-      new Map(
-        records
-          .map((record) => {
-            const plan = plansById.get(text(record.source_plan));
-            return plan
-              ? {
-                  school: plan.school,
-                  major: plan.majorName,
-                  term: text(record.recommended_year_semester) || "未标注学期",
-                }
-              : undefined;
-          })
-          .filter(
-            (item): item is { school: string; major: string; term: string } =>
-              Boolean(item),
-          )
-          .map((item) => [`${item.school}\0${item.major}\0${item.term}`, item]),
-      ).values(),
-    ).sort(
-      (a, b) =>
-        a.school.localeCompare(b.school, "zh-CN") ||
-        a.major.localeCompare(b.major, "zh-CN") ||
-        semesterOrder(a.term) - semesterOrder(b.term),
-    );
     const summary: CourseCatalogCourse = {
       code,
       name,
@@ -331,7 +446,9 @@ function aggregate(): {
       offeringColleges: unique(
         records.map((record) => text(record.offering_college)),
       ),
-      schools: unique(majors.map((item) => item.school)),
+      schools: unique(
+        majors.map((item) => detailPlans[item.planIndex]?.school ?? ""),
+      ),
       terms: sortTerms(majors.map((item) => item.term)),
       hasMaterial: repositoryFiles.length > 0,
       fileCount: repositoryFiles.length,
@@ -373,13 +490,20 @@ function aggregate(): {
   );
   const plans = Array.from(plansById.values()).sort(
     (a, b) =>
-      b.year.localeCompare(a.year) ||
+      a.sourceKind.localeCompare(b.sourceKind) ||
+      (b.entryCohort || b.planVersion).localeCompare(
+        a.entryCohort || a.planVersion,
+      ) ||
       a.school.localeCompare(b.school, "zh-CN") ||
-      a.majorName.localeCompare(b.majorName, "zh-CN"),
+      a.majorName.localeCompare(b.majorName, "zh-CN") ||
+      a.majorCode.localeCompare(b.majorCode),
   );
   return {
     index: {
-      years: unique(plans.map((plan) => plan.year)).sort((a, b) =>
+      entryCohorts: unique(plans.map((plan) => plan.entryCohort)).sort((a, b) =>
+        b.localeCompare(a),
+      ),
+      planVersions: unique(plans.map((plan) => plan.planVersion)).sort((a, b) =>
         b.localeCompare(a),
       ),
       schools: unique(plans.map((plan) => plan.school)),
@@ -392,14 +516,30 @@ function aggregate(): {
       occurrences,
     },
     details,
+    detailPlans,
   };
 }
 
+function aggregate(): {
+  index: CourseCatalogIndex;
+  details: Map<string, CourseDetailData>;
+  detailPlans: CourseDetailPlan[];
+} {
+  return buildCourseCatalog(source(), repositoryFileEntries());
+}
+
 export function getCourseCatalogIndex(): CourseCatalogIndex {
+  source();
+  const resources = repositoryFileEntries();
+  if (resourceCache !== resources) {
+    resourceCache = resources;
+    indexCache = undefined;
+  }
   if (!indexCache) {
     const result = aggregate();
     indexCache = result.index;
     detailCache = result.details;
+    detailPlanCache = result.detailPlans;
   }
   return indexCache;
 }
@@ -407,6 +547,50 @@ export function getCourseCatalogIndex(): CourseCatalogIndex {
 export function getCourseDetails(): Map<string, CourseDetailData> {
   getCourseCatalogIndex();
   return detailCache!;
+}
+
+let detailPlanCache: CourseDetailPlan[] | undefined;
+let detailCatalogCache: CourseDetailCatalog | undefined;
+
+export function getCourseDetailCatalog(): CourseDetailCatalog {
+  getCourseCatalogIndex();
+  if (detailCatalogCache?.plans !== detailPlanCache) {
+    detailCatalogCache = {
+      plans: detailPlanCache!,
+      courses: Object.fromEntries(detailCache!),
+    };
+  }
+  return detailCatalogCache!;
+}
+
+/** Project only this code; immutable file and summary arrays remain shared. */
+export function getCourseDetailPage(
+  code: string,
+  catalog: CourseDetailCatalog = getCourseDetailCatalog(),
+): CourseDetailPage {
+  const course = catalog.courses[code];
+  if (!course) throw new Error(`课程不存在：${code}`);
+  const plans: CourseDetailPlan[] = [];
+  const localIndices = new Map<number, number>();
+  const majors = course.majors.map((item) => {
+    let planIndex = localIndices.get(item.planIndex);
+    if (planIndex === undefined) {
+      const plan = catalog.plans[item.planIndex];
+      if (!plan) throw new Error(`课程安排引用不存在的方案：${item.occurrenceId}`);
+      planIndex = plans.length;
+      localIndices.set(item.planIndex, planIndex);
+      plans.push(plan);
+    }
+    return { ...item, planIndex };
+  });
+  return { course: { ...course, majors }, plans };
+}
+
+export function courseCatalogWatchFiles(sourceFiles = courseCatalogSourceFiles()): string[] {
+  return [
+    ...sourceFiles,
+    ...sourceFiles.map((file) => path.join(path.dirname(file), ".fireworks-json/*.json")),
+  ].map((file) => file.replaceAll("\\", "/"));
 }
 
 export function courseCatalogSourceFiles(): string[] {

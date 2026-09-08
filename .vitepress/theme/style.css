@@ -43,7 +43,11 @@
  *   in custom container, badges, etc.
  * -------------------------------------------------------------------------- */
 @import "primeicons/primeicons.css";
-@import "tailwindcss";
+@import "tailwindcss" source(none);
+@source "./**/*.{vue,ts,mts,js,mjs}";
+@source "../../**/*.md";
+@source not "../../{node_modules,.workspaces,.worktrees,.agents,data,config,docs,repository-tui}/**";
+@source not "../{.temp,cache,dist}/**";
 
 :root {
   --vp-c-default-1: var(--vp-c-gray-1);

@@ -5,8 +5,8 @@
   "main": "index.js",
   "scripts": {
     "docs:dev": "bun --bun vitepress dev",
-    "docs:build": "bun --bun vitepress build",
-    "docs:preview": "bun --bun vitepress preview",
+    "docs:build": "node node_modules/vitepress/bin/vitepress.js build --mpa && node node_modules/vite/bin/vite.js build --config vite.course-explorer.config.mts",
+    "docs:preview": "node node_modules/vitepress/bin/vitepress.js preview",
     "test:courses": "bun test scripts/course-catalog.test.mts",
     "update-campus": "bun scripts/update-campus-url.mjs",
     "audit:openlist": "bun scripts/audit-openlist-structure.mjs",

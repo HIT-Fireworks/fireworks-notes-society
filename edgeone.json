@@ -1,5 +1,5 @@
 {
-  "buildCommand": "node node_modules/vitepress/bin/vitepress.js build --mpa && bun scripts/write-course-catalog-client.mts && node node_modules/vite/bin/vite.js build --config vite.course-explorer.config.mts",
+  "buildCommand": "bun run docs:build",
   "installCommand": "bun install --frozen-lockfile",
   "outputDirectory": ".vitepress/dist",
   "nodeVersion": "22.11.0",

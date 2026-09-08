@@ -1,18 +1,13 @@
 import { defineLoader } from "vitepress";
-import {
-  getCourseCatalogIndex,
-  type CourseCatalogIndex,
-} from "../course-catalog";
+import { courseCatalogWatchFiles } from "../course-catalog";
+import { getCourseCatalogDelivery, type CourseCatalogDirectory } from "../course-catalog-delivery";
 
-declare const data: CourseCatalogIndex;
+declare const data: CourseCatalogDirectory;
 export { data };
 
 export default defineLoader({
-  watch: [
-    "../../../data/repository-manifest.no-collection.v4.json",
-    "../../../config/repository-file-routes.v4.json",
-  ],
-  load(): CourseCatalogIndex {
-    return getCourseCatalogIndex();
+  watch: courseCatalogWatchFiles(),
+  load(): CourseCatalogDirectory {
+    return getCourseCatalogDelivery().directory;
   },
 });

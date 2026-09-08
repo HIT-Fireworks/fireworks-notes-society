@@ -2,15 +2,21 @@
 import type { CourseDetailFile } from "../course-catalog";
 
 export function serializeResourceFiles(files: CourseDetailFile[]): string {
-  return Buffer.from(JSON.stringify(files), "utf8").toString("base64");
+  const bytes = new TextEncoder().encode(JSON.stringify(files));
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary);
 }
 </script>
 
 <script setup lang="ts">
-import type { CourseDetailData, CourseDetailFile } from "../course-catalog";
+import type { CourseDetailData, CourseDetailFile, CourseDetailPlan } from "../course-catalog";
 import ResourceFileList from "./ResourceFileList.vue";
 
-const { course } = defineProps<{ course: CourseDetailData }>();
+const { course, plans } = defineProps<{
+  course: CourseDetailData;
+  plans: CourseDetailPlan[];
+}>();
 const resourceFiles: CourseDetailFile[] = course.files;
 
 const readableTerm = (term: string) =>
@@ -23,6 +29,37 @@ const readableTerm = (term: string) =>
     .replace("秋季", "秋")
     .replace("春季", "春")
     .replace("夏季", "夏");
+const sourceLabel = (sourceKind: "curriculum" | "execution") =>
+  sourceKind === "execution" ? "执行教学计划" : "培养方案";
+type DetailArrangement = CourseDetailData["majors"][number];
+const arrangementPlan = (item: DetailArrangement) => plans[item.planIndex];
+const planIdentity = (item: DetailArrangement) => {
+  const plan = arrangementPlan(item);
+  return plan.sourceKind === "execution"
+    ? plan.entryCohort
+      ? `${plan.entryCohort} 级`
+      : "入学年级未标注"
+    : plan.planVersion || "版本未标注";
+};
+const majorLabel = (item: DetailArrangement) => {
+  const plan = arrangementPlan(item);
+  return [plan.majorFullName || plan.majorName || "专业名称未标注", plan.programType]
+    .filter(Boolean)
+    .join(" · ");
+};
+const sectionLabel = (item: DetailArrangement) => {
+  const labels: Record<string, string> = {
+    "curriculum-main": "培养方案课程",
+    "curriculum-requirements": "培养要求",
+    "execution-main": "执行教学计划课程",
+    "execution-module": "模块课程要求",
+    "execution-double-degree-minor": "双学位与辅修要求",
+  };
+  const label = labels[item.sourceSection ?? ""] ?? "安排来源未标注";
+  const relation = [item.moduleId ? `模块：${item.moduleId}` : "",
+    item.directionKey && item.directionKey !== "0" ? `方向：${item.directionKey}` : ""];
+  return [label, ...relation].filter(Boolean).join(" · ");
+};
 </script>
 
 <template>
@@ -35,6 +72,7 @@ const readableTerm = (term: string) =>
 
     <header class="course-heading">
       <h1>{{ course.name }}</h1>
+      <p v-if="course.name === course.code">教务未提供名称</p>
     </header>
 
     <dl class="course-highlights" aria-label="课程基本信息">
@@ -113,27 +151,33 @@ const readableTerm = (term: string) =>
 
     <div class="course-supplement">
       <details class="course-disclosure">
-        <summary>培养方案中的安排</summary>
+        <summary>教学计划中的安排</summary>
         <table v-if="course.majors.length" class="curriculum-table">
           <thead>
             <tr>
+              <th>来源</th>
+              <th>版本 / 年级</th>
               <th>培养学院</th>
               <th>专业</th>
-              <th>推荐学期</th>
+              <th>安排</th>
+              <th>学期</th>
             </tr>
           </thead>
           <tbody>
-            <tr
-              v-for="item in course.majors"
-              :key="`${item.school}-${item.major}-${item.term}`"
-            >
-              <td data-label="培养学院">{{ item.school }}</td>
-              <td data-label="专业">{{ item.major }}</td>
-              <td data-label="推荐学期">{{ readableTerm(item.term) }}</td>
+            <tr v-for="item in course.majors" :key="item.occurrenceId">
+              <td data-label="来源">{{ sourceLabel(arrangementPlan(item).sourceKind) }}</td>
+              <td data-label="版本 / 年级">{{ planIdentity(item) }}</td>
+              <td data-label="培养学院">{{ arrangementPlan(item).school || "未标注" }}</td>
+              <td data-label="专业">
+                {{ majorLabel(item) }}
+                <span class="major-code">{{ arrangementPlan(item).majorCode || "代码未标注" }}</span>
+              </td>
+              <td data-label="安排">{{ sectionLabel(item) }}</td>
+              <td data-label="学期">{{ readableTerm(item.term) }}</td>
             </tr>
           </tbody>
         </table>
-        <p v-else class="arrangements-empty">培养方案中暂无专业覆盖信息。</p>
+        <p v-else class="arrangements-empty">教学计划中暂无专业覆盖信息。</p>
       </details>
     </div>
   </article>
@@ -285,7 +329,7 @@ const readableTerm = (term: string) =>
   width: 100%;
   margin: 0 0 20px;
   border-collapse: collapse;
-  table-layout: fixed;
+  table-layout: auto;
   text-align: left;
   font-size: 14px;
 }
@@ -302,6 +346,12 @@ const readableTerm = (term: string) =>
 }
 .curriculum-table tbody tr:last-child td {
   border-bottom: 0;
+}
+.major-code {
+  display: block;
+  color: var(--vp-c-text-2);
+  font-family: var(--vp-font-family-mono);
+  font-size: 12px;
 }
 .arrangements-empty {
   margin: 0 0 20px;
@@ -344,7 +394,7 @@ const readableTerm = (term: string) =>
   }
   .curriculum-table td {
     display: grid;
-    grid-template-columns: 5rem minmax(0, 1fr);
+    grid-template-columns: 6rem minmax(0, 1fr);
     gap: 12px;
     padding: 3px 0;
     border: 0;

@@ -1,5 +1,5 @@
-import fs from "node:fs";
 import path from "node:path";
+import { readManifestJson } from "./manifest-store";
 
 export interface RepositoryFileEntry {
   repoId: string;
@@ -38,15 +38,17 @@ interface ResourceSource {
 let sourceCache: ResourceSource | undefined;
 let entriesCache: RepositoryFileEntry[] | undefined;
 let treeCache: Map<string, RepositoryFileTreeNode> | undefined;
+let manifestCache: WeakRef<JsonRecord> | undefined;
+let routesCache: WeakRef<JsonRecord> | undefined;
 
 function readSource(): ResourceSource {
-  if (!sourceCache) {
-    const manifest = JSON.parse(
-      fs.readFileSync(manifestFile, "utf8"),
-    ) as JsonRecord;
-    const routes = JSON.parse(
-      fs.readFileSync(routesFile, "utf8"),
-    ) as JsonRecord;
+  const manifest = readManifestJson<JsonRecord>(manifestFile);
+  const routes = readManifestJson<JsonRecord>(routesFile);
+  if (!sourceCache || manifestCache?.deref() !== manifest || routesCache?.deref() !== routes) {
+    manifestCache = new WeakRef(manifest);
+    routesCache = new WeakRef(routes);
+    entriesCache = undefined;
+    treeCache = undefined;
     sourceCache = {
       repositories: Array.isArray(manifest.repositories)
         ? manifest.repositories
@@ -84,8 +86,8 @@ function repositoryName(
 }
 
 export function repositoryFileEntries(repoId?: string): RepositoryFileEntry[] {
+  const { repositories, files } = readSource();
   if (!entriesCache) {
-    const { repositories, files } = readSource();
     const repositoryById = new Map(
       repositories.map((repository) => [
         stringValue(repository.repo_id),
@@ -128,6 +130,7 @@ export function repositoryFilesForCourse(
 }
 
 export function repositoryFileTree(repoId: string): RepositoryFileTreeNode {
+  readSource();
   if (!treeCache) treeCache = new Map();
   const cached = treeCache.get(repoId);
   if (cached) return cached;

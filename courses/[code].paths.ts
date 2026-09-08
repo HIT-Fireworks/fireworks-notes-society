@@ -1,16 +1,19 @@
 import {
-  courseCatalogSourceFiles,
+  courseCatalogWatchFiles,
   courseSlug,
-  getCourseCatalogIndex,
+  getCourseDetailCatalog,
 } from "../.vitepress/theme/course-catalog";
+import { courseDetailFileName } from "../.vitepress/theme/course-catalog-delivery";
 
 export default {
-  watch: courseCatalogSourceFiles(),
+  watch: courseCatalogWatchFiles(),
   paths() {
-    return getCourseCatalogIndex().courses.map((course) => ({
+    const details = getCourseDetailCatalog();
+    return Object.values(details.courses).map((course) => ({
       params: {
         code: courseSlug(course.code),
         courseCode: course.code,
+        detailFile: courseDetailFileName(course.code),
       },
     }));
   },

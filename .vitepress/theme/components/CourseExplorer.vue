@@ -11,11 +11,14 @@ import SelectButton from "primevue/selectbutton";
 import Tag from "primevue/tag";
 import type {
   CourseCatalogCourse,
-  CourseCatalogIndex,
   CourseCatalogOccurrence,
+  CoursePlanSourceKind,
 } from "../course-catalog";
 
-const { catalog } = defineProps<{ catalog: CourseCatalogIndex }>();
+import type { CourseCatalogDirectory } from "../course-catalog-delivery";
+import { loadCoursePlan } from "../course-catalog-client";
+
+const { catalog } = defineProps<{ catalog: CourseCatalogDirectory }>();
 
 type ViewMode = "plan" | "search";
 type MaterialFilter = "all" | "available" | "missing";
@@ -27,8 +30,8 @@ interface PlanCourseCard {
 const modeOptions = [
   {
     value: "plan",
-    label: "我的培养方案",
-    description: "按年级、学院、专业和学期浏览",
+    label: "我的教学计划",
+    description: "按来源、版本或年级、学院、专业和学期浏览",
     icon: "pi pi-sitemap",
   },
   {
@@ -43,19 +46,25 @@ const modeOptions = [
   description: string;
   icon: string;
 }>;
-const yearOptions = catalog.years.map((year) => ({
-  label: `${year} 级`,
-  value: year,
-}));
+const sourceOptions = [
+  { label: "培养方案", value: "curriculum" },
+  { label: "执行教学计划", value: "execution" },
+] satisfies Array<{ label: string; value: CoursePlanSourceKind }>;
 const materialOptions = [
   { label: "全部课程", value: "all" },
   { label: "已有资料", value: "available" },
   { label: "待补充资料", value: "missing" },
 ] satisfies Array<{ label: string; value: MaterialFilter }>;
 
+const availableSources = sourceOptions.filter((option) =>
+  catalog.plans.some((plan) => plan.sourceKind === option.value),
+);
 const mode = ref<ViewMode>("plan");
-const selectedYear = ref(catalog.years[0] ?? "");
-const selectedSchool = ref("");
+const selectedSource = ref<CoursePlanSourceKind>(
+  availableSources[0]?.value ?? "curriculum",
+);
+const selectedPlanIdentity = ref("");
+const selectedDepartment = ref("");
 const selectedPlanId = ref("");
 const selectedTerm = ref("all");
 const keyword = ref("");
@@ -64,44 +73,87 @@ const trainingSchool = ref("");
 const searchTerm = ref("");
 const materialFilter = ref<MaterialFilter>("all");
 const resultLimit = ref(48);
+const planRecords = ref<CourseCatalogOccurrence[]>([]);
+const planLoading = ref(false);
+const planError = ref("");
+const planReload = ref(0);
 
 const courseByCode = new Map(
   catalog.courses.map((course) => [course.code, course]),
 );
-
-const schoolOptions = computed(() =>
-  Array.from(
+const sourcePlans = computed(() =>
+  catalog.plans.filter((plan) => plan.sourceKind === selectedSource.value),
+);
+const identityOptions = computed(() => {
+  const values = Array.from(
     new Set(
-      catalog.plans
-        .filter((plan) => plan.year === selectedYear.value)
-        .map((plan) => plan.school),
+      sourcePlans.value.map((plan) =>
+        selectedSource.value === "execution"
+          ? plan.entryCohort
+          : plan.planVersion,
+      ),
     ),
-  ).sort((a, b) => a.localeCompare(b, "zh-CN")),
+  ).sort((a, b) => b.localeCompare(a, "zh-CN"));
+  return values.map((value) => ({
+    label: value
+      ? selectedSource.value === "execution"
+        ? `${value} 级`
+        : value
+      : selectedSource.value === "execution"
+        ? "入学年级未标注"
+        : "方案版本未标注",
+    value,
+  }));
+});
+const scopedPlans = computed(() =>
+  sourcePlans.value.filter((plan) => {
+    const identity =
+      plan.sourceKind === "execution" ? plan.entryCohort : plan.planVersion;
+    return identity === selectedPlanIdentity.value;
+  }),
 );
 const schoolSelectOptions = computed(() =>
-  schoolOptions.value.map((school) => ({ label: school, value: school })),
+  Array.from(
+    new Map(
+      scopedPlans.value.map((plan) => {
+        const value = `${plan.departmentCode}\0${plan.school}`;
+        const label = [plan.school || "培养学院未标注", plan.departmentCode]
+          .filter(Boolean)
+          .join(" · ");
+        return [value, { label, value }];
+      }),
+    ).values(),
+  ).sort((a, b) => a.label.localeCompare(b.label, "zh-CN")),
 );
-
 const majorOptions = computed(() =>
-  catalog.plans
+  scopedPlans.value
     .filter(
       (plan) =>
-        plan.year === selectedYear.value &&
-        plan.school === selectedSchool.value,
+        `${plan.departmentCode}\0${plan.school}` === selectedDepartment.value,
     )
-    .sort((a, b) => a.majorName.localeCompare(b.majorName, "zh-CN")),
+    .sort(
+      (a, b) =>
+        (a.majorFullName || a.majorName).localeCompare(
+          b.majorFullName || b.majorName,
+          "zh-CN",
+        ) || a.majorCode.localeCompare(b.majorCode),
+    ),
 );
 const majorSelectOptions = computed(() =>
   majorOptions.value.map((plan) => ({
-    label: plan.majorName,
+    label: [
+      plan.majorFullName || plan.majorName || "专业名称未标注",
+      plan.programType,
+      plan.majorCode,
+    ]
+      .filter(Boolean)
+      .join(" · "),
     value: plan.id,
   })),
 );
-
 const selectedPlan = computed(() =>
   catalog.plans.find((plan) => plan.id === selectedPlanId.value),
 );
-
 const planGroups = computed(() => {
   const plan = selectedPlan.value;
   if (!plan) return [];
@@ -109,22 +161,17 @@ const planGroups = computed(() => {
     selectedTerm.value === "all" ? plan.terms : [selectedTerm.value];
   return requestedTerms
     .map((term) => {
-      const seen = new Set<string>();
-      const courses = catalog.occurrences
-        .filter(
-          (occurrence) =>
-            occurrence.planId === plan.id && occurrence.term === term,
-        )
+      const courses = planRecords.value
+        .filter((occurrence) => occurrence.term === term)
         .flatMap((occurrence): PlanCourseCard[] => {
-          if (seen.has(occurrence.courseCode)) return [];
-          seen.add(occurrence.courseCode);
           const course = courseByCode.get(occurrence.courseCode);
           return course ? [{ course, occurrence }] : [];
         })
         .sort(
           (a, b) =>
             Number(b.course.hasMaterial) - Number(a.course.hasMaterial) ||
-            a.course.name.localeCompare(b.course.name, "zh-CN"),
+            a.course.name.localeCompare(b.course.name, "zh-CN") ||
+            a.occurrence.id.localeCompare(b.occurrence.id),
         );
       return { term, courses };
     })
@@ -156,15 +203,9 @@ const filteredCourses = computed(() =>
     ) {
       return false;
     }
-    if (searchTerm.value && !course.terms.includes(searchTerm.value)) {
-      return false;
-    }
-    if (materialFilter.value === "available" && !course.hasMaterial) {
-      return false;
-    }
-    if (materialFilter.value === "missing" && course.hasMaterial) {
-      return false;
-    }
+    if (searchTerm.value && !course.terms.includes(searchTerm.value)) return false;
+    if (materialFilter.value === "available" && !course.hasMaterial) return false;
+    if (materialFilter.value === "missing" && course.hasMaterial) return false;
     return true;
   }),
 );
@@ -172,17 +213,40 @@ const visibleCourses = computed(() =>
   filteredCourses.value.slice(0, resultLimit.value),
 );
 
-watch(selectedYear, () => {
-  selectedSchool.value = "";
+watch(selectedSource, () => {
+  selectedPlanIdentity.value = identityOptions.value[0]?.value ?? "";
+  selectedDepartment.value = "";
   selectedPlanId.value = "";
   selectedTerm.value = "all";
 });
-watch(selectedSchool, () => {
+watch(selectedPlanIdentity, () => {
+  selectedDepartment.value = "";
   selectedPlanId.value = "";
   selectedTerm.value = "all";
 });
-watch(selectedPlanId, () => {
+watch(selectedDepartment, () => {
+  selectedPlanId.value = "";
   selectedTerm.value = "all";
+});
+watch([selectedPlanId, planReload], async ([planId], _previous, onCleanup) => {
+  selectedTerm.value = "all";
+  planRecords.value = [];
+  planError.value = "";
+  planLoading.value = false;
+  if (!planId) return;
+  const controller = new AbortController();
+  onCleanup(() => controller.abort());
+  planLoading.value = true;
+  try {
+    const payload = await loadCoursePlan(planId, catalog.planFiles[planId] ?? "", controller.signal);
+    if (!controller.signal.aborted) planRecords.value = payload.occurrences;
+  } catch (error) {
+    if (!controller.signal.aborted) {
+      planError.value = error instanceof Error ? error.message : "课程安排加载失败，请重试。";
+    }
+  } finally {
+    if (!controller.signal.aborted) planLoading.value = false;
+  }
 });
 watch(
   [keyword, offeringCollege, trainingSchool, searchTerm, materialFilter],
@@ -190,6 +254,7 @@ watch(
     resultLimit.value = 48;
   },
 );
+selectedPlanIdentity.value = identityOptions.value[0]?.value ?? "";
 
 const courseLink = (code: string) => `/courses/${encodeURIComponent(code)}`;
 const readableTerm = (term: string) =>
@@ -208,20 +273,26 @@ const readableBytes = (bytes: number) => {
   if (bytes >= 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${bytes} B`;
 };
+const sectionLabels: Record<string, string> = {
+  "curriculum-main": "培养方案课程",
+  "curriculum-requirements": "培养要求",
+  "execution-main": "执行教学计划课程",
+  "execution-module": "模块课程要求",
+  "execution-double-degree-minor": "双学位与辅修要求",
+};
+const sourceSectionLabel = (occurrence: CourseCatalogOccurrence) => [
+  sectionLabels[occurrence.sourceSection ?? ""] ?? "安排来源未标注",
+  occurrence.moduleId ? `模块：${occurrence.moduleId}` : "",
+  occurrence.directionKey && occurrence.directionKey !== "0" ? `方向：${occurrence.directionKey}` : "",
+].filter(Boolean).join(" · ");
 const offeringCollegeOptions = computed(() =>
-  catalog.offeringColleges.map((college) => ({
-    label: college,
-    value: college,
-  })),
+  catalog.offeringColleges.map((college) => ({ label: college, value: college })),
 );
 const trainingSchoolOptions = computed(() =>
   catalog.schools.map((school) => ({ label: school, value: school })),
 );
 const searchTermOptions = computed(() =>
-  catalog.terms.map((term) => ({
-    label: readableTerm(term),
-    value: term,
-  })),
+  catalog.terms.map((term) => ({ label: readableTerm(term), value: term })),
 );
 </script>
 
@@ -232,13 +303,13 @@ const searchTermOptions = computed(() =>
         <p class="catalog-eyebrow">薪火课程中心</p>
         <h1>先找到这学期，再找到这门课</h1>
         <p class="catalog-lead">
-          按培养方案浏览你的完整课程路径，或直接按学院、课程名和资料状态检索。
+          按培养方案或执行教学计划浏览课程路径，或直接按学院、课程名和资料状态检索。
         </p>
       </div>
       <dl class="catalog-stats" aria-label="课程目录统计">
         <div>
           <dt>{{ catalog.plans.length }}</dt>
-          <dd>培养方案</dd>
+          <dd>教学计划</dd>
         </div>
         <div>
           <dt>{{ catalog.courses.length }}</dt>
@@ -278,17 +349,28 @@ const searchTermOptions = computed(() =>
       <template #title>
         <span class="panel-title">
           <span class="step-number">1</span>
-          选择你的培养方案
+          选择教学计划
         </span>
       </template>
-      <template #subtitle>选择会逐级缩小，不需要记专业代码。</template>
+      <template #subtitle>选择会逐级缩小，专业选项包含官方代码。</template>
       <template #content>
         <div class="selector-grid">
           <label>
-            <span>年级 / 方案年份</span>
+            <span>来源</span>
             <Select
-              v-model="selectedYear"
-              :options="yearOptions"
+              v-model="selectedSource"
+              :options="availableSources"
+              option-label="label"
+              option-value="value"
+              size="small"
+              fluid
+            />
+          </label>
+          <label>
+            <span>{{ selectedSource === "execution" ? "入学年级" : "方案版本" }}</span>
+            <Select
+              v-model="selectedPlanIdentity"
+              :options="identityOptions"
               option-label="label"
               option-value="value"
               size="small"
@@ -298,7 +380,7 @@ const searchTermOptions = computed(() =>
           <label>
             <span>培养学院</span>
             <Select
-              v-model="selectedSchool"
+              v-model="selectedDepartment"
               :options="schoolSelectOptions"
               option-label="label"
               option-value="value"
@@ -317,7 +399,7 @@ const searchTermOptions = computed(() =>
               option-value="value"
               size="small"
               placeholder="请选择专业"
-              :disabled="!selectedSchool"
+              :disabled="!selectedDepartment"
               filter
               fluid
             />
@@ -330,7 +412,13 @@ const searchTermOptions = computed(() =>
               <span class="step-number">2</span>
               <div>
                 <h2>选择学年与学期</h2>
-                <p>{{ selectedPlan.majorName }} · {{ selectedPlan.version }}</p>
+                <p>
+                  {{ selectedPlan.majorFullName || selectedPlan.majorName }} ·
+                  {{ selectedPlan.majorCode }} ·
+                  {{ selectedPlan.sourceKind === "execution"
+                    ? selectedPlan.entryCohort ? `${selectedPlan.entryCohort} 级` : "入学年级未标注"
+                    : selectedPlan.planVersion || "方案版本未标注" }}
+                </p>
               </div>
             </div>
             <SelectButton
@@ -351,6 +439,13 @@ const searchTermOptions = computed(() =>
             />
           </div>
 
+          <Message v-if="planLoading" severity="secondary" role="status">正在加载课程安排…</Message>
+          <Message v-else-if="planError" severity="error" role="alert">
+            {{ planError }}
+            <Button label="重试" size="small" @click="planReload++" />
+          </Message>
+          <Message v-else-if="!planRecords.length" severity="secondary">教务尚未返回课程安排</Message>
+          <Message v-else-if="!planGroups.length" severity="secondary">本学期暂无课程安排。</Message>
           <div class="term-groups">
             <section
               v-for="group in planGroups"
@@ -367,7 +462,7 @@ const searchTermOptions = computed(() =>
               <div class="course-grid">
                 <a
                   v-for="item in group.courses"
-                  :key="item.course.code"
+                  :key="item.occurrence.id"
                   class="course-card"
                   :href="courseLink(item.course.code)"
                 >
@@ -383,6 +478,7 @@ const searchTermOptions = computed(() =>
                     />
                   </div>
                   <h4>{{ item.course.name }}</h4>
+                  <p v-if="item.course.name === item.course.code" class="course-college">教务未提供名称</p>
                   <p class="course-meta">
                     <span v-if="item.occurrence.credit !== undefined"
                       >{{ item.occurrence.credit }} 学分</span
@@ -393,6 +489,9 @@ const searchTermOptions = computed(() =>
                     <span v-if="item.occurrence.courseNature">{{
                       item.occurrence.courseNature
                     }}</span>
+                  </p>
+                  <p v-if="sourceSectionLabel(item.occurrence)" class="course-college">
+                    {{ sourceSectionLabel(item.occurrence) }}
                   </p>
                   <p class="course-college">
                     {{
@@ -412,7 +511,7 @@ const searchTermOptions = computed(() =>
         </template>
 
         <Message v-else severity="secondary" variant="simple">
-          从上面选好年级、学院和专业；课程会自动按学期分组展示。
+          从上面选好来源、版本或年级、学院和专业；课程会自动按学期分组展示。
         </Message>
       </template>
     </Card>
@@ -533,6 +632,7 @@ const searchTermOptions = computed(() =>
               />
             </div>
             <h3>{{ course.name }}</h3>
+            <p v-if="course.name === course.code" class="course-college">教务未提供名称</p>
             <p class="course-college">
               {{
                 course.offeringColleges.slice(0, 2).join(" · ") ||
@@ -694,7 +794,7 @@ const searchTermOptions = computed(() =>
 .selector-grid,
 .filter-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 0.75rem;
 }
 
@@ -887,6 +987,9 @@ label > span {
   }
   .catalog-stats div {
     flex: 1;
+  }
+  .selector-grid {
+    grid-template-columns: repeat(2, 1fr);
   }
   .course-grid,
   .search-results {
