@@ -2,10 +2,20 @@ import assert from "node:assert/strict";
 import { readManifestJson } from "../.vitepress/theme/manifest-store.ts";
 import { basename } from "node:path";
 import { test } from "node:test";
-import { readFileSync, mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import {
+  readFileSync,
+  mkdtempSync,
+  mkdirSync,
+  writeFileSync,
+  rmSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
-import { buildCourseCatalogDelivery, courseCatalogDeliveryPlugin, courseDetailFileName } from "../.vitepress/theme/course-catalog-delivery.ts";
+import {
+  buildCourseCatalogDelivery,
+  courseCatalogDeliveryPlugin,
+  courseDetailFileName,
+} from "../.vitepress/theme/course-catalog-delivery.ts";
 import { loadCoursePlan } from "../.vitepress/theme/course-catalog-client.ts";
 import { createHash } from "node:crypto";
 import {
@@ -38,7 +48,9 @@ for (const record of manifest.curriculum_records) {
   records.push(record);
   recordsByCode.set(record.course_code, records);
 }
-const descriptorByCode = new Map<string, any>(manifest.course_descriptors.map((item) => [item.course_code, item]));
+const descriptorByCode = new Map<string, any>(
+  manifest.course_descriptors.map((item) => [item.course_code, item]),
+);
 const fileIdsByCode = new Map<string, string[]>();
 for (const file of routes.files) {
   for (const code of file.course_codes ?? []) {
@@ -55,13 +67,18 @@ test("课程名称与检索别名只来自同一课程代码，不继承合仓�
     const officialNames = new Set<string>(
       [
         descriptor?.course_name,
-        ...(recordsByCode.get(course.code) ?? []).map((record) => record.course_name),
+        ...(recordsByCode.get(course.code) ?? []).map(
+          (record) => record.course_name,
+        ),
       ]
         .filter((name) => typeof name === "string" && name.trim())
         .map((name: string) => name.trim()),
     );
     if (officialNames.size) {
-      assert.ok(officialNames.has(course.name), `${course.code}: ${course.name}`);
+      assert.ok(
+        officialNames.has(course.name),
+        `${course.code}: ${course.name}`,
+      );
     } else {
       assert.equal(course.name, course.code);
       assert.deepEqual(course.aliases, []);
@@ -121,11 +138,13 @@ test("课程目录完整消费正式输入且不依赖固定数据规模", () =>
   const codedRecords = manifest.curriculum_records.filter(
     (record) => record.course_code && validPlanIds.has(record.source_plan),
   );
-  const expectedCodes = new Set([
-    ...manifest.course_descriptors.map((item) => item.course_code),
-    ...codedRecords.map((item) => item.course_code),
-    ...routes.files.flatMap((file) => file.course_codes ?? []),
-  ].filter(Boolean));
+  const expectedCodes = new Set(
+    [
+      ...manifest.course_descriptors.map((item) => item.course_code),
+      ...codedRecords.map((item) => item.course_code),
+      ...routes.files.flatMap((file) => file.course_codes ?? []),
+    ].filter(Boolean),
+  );
   assert.equal(catalog.plans.length, validPlanIds.size);
   assert.equal(catalog.occurrences.length, codedRecords.length);
   assert.deepEqual(
@@ -179,20 +198,20 @@ test("课程详情只序列化渲染所需的最小文件字段", () => {
     );
   }
   const detailCatalog = getCourseDetailCatalog();
-    for (const plan of detailCatalog.plans) {
-      assert.deepEqual(Object.keys(plan).sort(), [
-        "departmentCode",
-        "entryCohort",
-        "id",
-        "majorCode",
-        "majorFullName",
-        "majorName",
-        "planVersion",
-        "programType",
-        "school",
-        "sourceKind",
-      ]);
-    }
+  for (const plan of detailCatalog.plans) {
+    assert.deepEqual(Object.keys(plan).sort(), [
+      "departmentCode",
+      "entryCohort",
+      "id",
+      "majorCode",
+      "majorFullName",
+      "majorName",
+      "planVersion",
+      "programType",
+      "school",
+      "sourceKind",
+    ]);
+  }
   for (const detail of details.values()) {
     assert.ok(!("academicStructure" in detail), detail.code);
     for (const item of detail.majors) {
@@ -444,38 +463,74 @@ test("缺少上游身份证据的旧课程记录会被明确拒绝", () => {
 });
 
 test("冻结旧输入的全站详情投影仍严格小于 5MiB", () => {
-  const fixture = JSON.parse(readFileSync(new URL("./fixtures/course-catalog-baseline.json", import.meta.url), "utf8"));
-  const expand = (table) => table.rows.map((row) => Object.fromEntries(table.columns.map((key, index) => [key, row[index]])));
-  const input = Object.fromEntries(Object.entries(fixture.tables).map(([key, table]) => [key, expand(table)]));
+  const fixture = JSON.parse(
+    readFileSync(
+      new URL("./fixtures/course-catalog-baseline.json", import.meta.url),
+      "utf8",
+    ),
+  );
+  const expand = (table) =>
+    table.rows.map((row) =>
+      Object.fromEntries(table.columns.map((key, index) => [key, row[index]])),
+    );
+  const input = Object.fromEntries(
+    Object.entries(fixture.tables).map(([key, table]) => [key, expand(table)]),
+  );
   const files = expand(fixture.files).map((file) => ({
-    repoId: file.repo_id, repoName: file.repo_id, path: file.path,
-    name: file.path.split("/").pop(), routeKind: file.route_kind || "其他资料",
-    courseCodes: file.course_codes ?? [], size: file.size ?? 0,
+    repoId: file.repo_id,
+    repoName: file.repo_id,
+    path: file.path,
+    name: file.path.split("/").pop(),
+    routeKind: file.route_kind || "其他资料",
+    courseCodes: file.course_codes ?? [],
+    size: file.size ?? 0,
   }));
-  const result = buildCourseCatalog(input as Parameters<typeof buildCourseCatalog>[0], files);
+  const result = buildCourseCatalog(
+    input as Parameters<typeof buildCourseCatalog>[0],
+    files,
+  );
   assert.equal(result.index.plans.length, 211);
   assert.equal(result.index.courses.length, 2618);
   assert.equal(files.length, 3857);
-  const bytes = Buffer.byteLength(JSON.stringify({ plans: result.detailPlans, courses: Object.fromEntries(result.details) }));
+  const bytes = Buffer.byteLength(
+    JSON.stringify({
+      plans: result.detailPlans,
+      courses: Object.fromEntries(result.details),
+    }),
+  );
   assert.ok(bytes < 5 * 1024 * 1024, `${bytes} bytes`);
 });
 
 test("每个完整代码仅发布本课程详情且本地方案索引不丢安排", () => {
   const global = getCourseDetailCatalog();
-  const occurrences = new Map(catalog.occurrences.map((item) => [item.id, item]));
+  const occurrences = new Map(
+    catalog.occurrences.map((item) => [item.id, item]),
+  );
   for (const code of details.keys()) {
     const page = getCourseDetailPage(code, global);
     const original = details.get(code)!;
     assert.deepEqual(Object.keys(page).sort(), ["course", "plans"]);
     assert.equal(page.course.code, code);
     assert.equal(page.course.files, original.files);
-    assert.equal(page.course.majors.length, (recordsByCode.get(code) ?? []).length);
-    assert.equal(new Set(page.plans.map((plan) => plan.id)).size, page.plans.length);
-    assert.equal(new Set(page.course.majors.map((item) => item.planIndex)).size, page.plans.length);
+    assert.equal(
+      page.course.majors.length,
+      (recordsByCode.get(code) ?? []).length,
+    );
+    assert.equal(
+      new Set(page.plans.map((plan) => plan.id)).size,
+      page.plans.length,
+    );
+    assert.equal(
+      new Set(page.course.majors.map((item) => item.planIndex)).size,
+      page.plans.length,
+    );
     for (let index = 0; index < page.course.majors.length; index++) {
       const item = page.course.majors[index];
       const source = original.majors[index];
-      assert.deepEqual(page.plans[item.planIndex], global.plans[source.planIndex]);
+      assert.deepEqual(
+        page.plans[item.planIndex],
+        global.plans[source.planIndex],
+      );
       assert.deepEqual({ ...item, planIndex: source.planIndex }, source);
       const occurrence = occurrences.get(item.occurrenceId)!;
       assert.equal(occurrence.courseCode, code);
@@ -495,50 +550,78 @@ test("全部课程路由只携带稳定身份且每门课有独立详情地址",
     assert.ok(details.has(params.courseCode));
     assert.equal(params.detailFile, courseDetailFileName(params.courseCode));
     assert.match(params.detailFile, /^[a-f0-9]{64}\.json$/);
-    assert.deepEqual(Object.keys(params).sort(), ["code", "courseCode", "detailFile"]);
+    assert.deepEqual(Object.keys(params).sort(), [
+      "code",
+      "courseCode",
+      "detailFile",
+    ]);
     assert.ok(!files.has(params.detailFile));
     files.add(params.detailFile);
   }
 });
 
-test("详情 SSR 逐页读取当前数据并拒绝越界和缺失文件", { timeout: 60000 }, async () => {
-  const root = mkdtempSync(join(tmpdir(), "course-detail-runtime-"));
-  const output = join(root, "dist");
-  mkdirSync(join(output, "course-details"), { recursive: true });
-  const server = await createServer({
-    configFile: false,
-    root,
-    plugins: [courseCatalogDeliveryPlugin()],
-    build: { outDir: output },
-    server: { middlewareMode: true },
-    appType: "custom",
-  });
-  try {
-    const runtime = await server.ssrLoadModule("virtual:course-detail");
-    const firstCode = details.keys().next().value!;
-    const secondCode = [...details.keys()].find((code) => code !== firstCode)!;
-    const first = getCourseDetailPage(firstCode);
-    const second = getCourseDetailPage(secondCode);
-    const file = courseDetailFileName(firstCode);
-    writeFileSync(join(output, "course-details", file), JSON.stringify(first));
-    assert.deepEqual(await runtime.loadCourseDetail(file), JSON.parse(JSON.stringify(first)));
-    writeFileSync(join(output, "course-details", file), JSON.stringify(second));
-    assert.deepEqual(await runtime.loadCourseDetail(file), JSON.parse(JSON.stringify(second)));
-    await assert.rejects(runtime.loadCourseDetail("../manifest.json"), /地址无效/);
-    await assert.rejects(runtime.loadCourseDetail(courseDetailFileName("missing-detail")), /ENOENT/);
-  } finally {
-    await server.close();
-    rmSync(root, { recursive: true, force: true });
-  }
-});
+test(
+  "详情 SSR 逐页读取当前数据并拒绝越界和缺失文件",
+  { timeout: 60000 },
+  async () => {
+    const root = mkdtempSync(join(tmpdir(), "course-detail-runtime-"));
+    const output = join(root, "dist");
+    mkdirSync(join(output, "course-details"), { recursive: true });
+    const server = await createServer({
+      configFile: false,
+      root,
+      plugins: [courseCatalogDeliveryPlugin()],
+      build: { outDir: output },
+      server: { middlewareMode: true },
+      appType: "custom",
+    });
+    try {
+      const runtime = await server.ssrLoadModule("virtual:course-detail");
+      const firstCode = details.keys().next().value!;
+      const secondCode = [...details.keys()].find(
+        (code) => code !== firstCode,
+      )!;
+      const first = getCourseDetailPage(firstCode);
+      const second = getCourseDetailPage(secondCode);
+      const file = courseDetailFileName(firstCode);
+      writeFileSync(
+        join(output, "course-details", file),
+        JSON.stringify(first),
+      );
+      assert.deepEqual(
+        await runtime.loadCourseDetail(file),
+        JSON.parse(JSON.stringify(first)),
+      );
+      writeFileSync(
+        join(output, "course-details", file),
+        JSON.stringify(second),
+      );
+      assert.deepEqual(
+        await runtime.loadCourseDetail(file),
+        JSON.parse(JSON.stringify(second)),
+      );
+      await assert.rejects(
+        runtime.loadCourseDetail("../manifest.json"),
+        /地址无效/,
+      );
+      await assert.rejects(
+        runtime.loadCourseDetail(courseDetailFileName("missing-detail")),
+        /ENOENT/,
+      );
+    } finally {
+      await server.close();
+      rmSync(root, { recursive: true, force: true });
+    }
+  },
+);
 
-test("目录保留全量检索摘要但课程记录只出现在所属方案文件", () => {
+test("计划包完整保留各计划记录且目录可定位每份计划", () => {
   const delivery = buildCourseCatalogDelivery(catalog);
   assert.ok(!("occurrences" in delivery.directory));
-  assert.equal(delivery.directory.courses, catalog.courses);
-  assert.equal(delivery.directory.plans, catalog.plans);
-  assert.equal(Object.keys(delivery.directory.planFiles).length, catalog.plans.length);
-  assert.equal(delivery.files.size, catalog.plans.length);
+  assert.equal(
+    Object.keys(delivery.directory.planFiles).length,
+    catalog.plans.length,
+  );
   const byPlan = new Map<string, typeof catalog.occurrences>();
   for (const item of catalog.occurrences) {
     const records = byPlan.get(item.planId) ?? [];
@@ -549,25 +632,56 @@ test("目录保留全量检索摘要但课程记录只出现在所属方案文�
   for (const plan of catalog.plans) {
     const url = delivery.directory.planFiles[plan.id];
     assert.match(url, /^\/course-plans\/[a-f0-9]{64}\.json$/);
-    const payload = delivery.files.get(url)!;
+    const payload = delivery.files.get(url)!.plans[plan.id];
     assert.equal(payload.planId, plan.id);
     assert.deepEqual(payload.occurrences, byPlan.get(plan.id) ?? []);
     total += payload.occurrences.length;
   }
   assert.equal(total, catalog.occurrences.length);
+  const published = [...delivery.files.values()].flatMap((bundle) =>
+    Object.values(bundle.plans),
+  );
+  assert.deepEqual(
+    published.map((plan) => plan.planId).sort(),
+    catalog.plans.map((plan) => plan.id).sort(),
+  );
+  assert.equal(
+    published.reduce((sum, plan) => sum + plan.occurrences.length, 0),
+    catalog.occurrences.length,
+  );
 });
 
 test("无官方名称的完整代码仍可检索且不继承同仓资料", () => {
-  const result = buildCourseCatalog({
-    curriculum_plans: [{ plan_id: "empty" }], curriculum_records: [],
-    repositories: [{ repo_id: "shared" }],
-    course_descriptors: [{ course_code: "NO-NAME", repo_id: "shared" }, { course_code: "NAMED", course_name: "官方名称", repo_id: "shared" }],
-  }, [{ repoId: "shared", repoName: "shared", path: "named.pdf", name: "named.pdf", routeKind: "document", size: 1, courseCodes: ["NAMED"] }]);
+  const result = buildCourseCatalog(
+    {
+      curriculum_plans: [{ plan_id: "empty" }],
+      curriculum_records: [],
+      repositories: [{ repo_id: "shared" }],
+      course_descriptors: [
+        { course_code: "NO-NAME", repo_id: "shared" },
+        { course_code: "NAMED", course_name: "官方名称", repo_id: "shared" },
+      ],
+    },
+    [
+      {
+        repoId: "shared",
+        repoName: "shared",
+        path: "named.pdf",
+        name: "named.pdf",
+        routeKind: "document",
+        size: 1,
+        courseCodes: ["NAMED"],
+      },
+    ],
+  );
   assert.equal(result.details.get("NO-NAME")!.name, "NO-NAME");
   assert.deepEqual(result.details.get("NO-NAME")!.aliases, []);
   assert.deepEqual(result.details.get("NO-NAME")!.files, []);
   const delivery = buildCourseCatalogDelivery(result.index);
-  assert.deepEqual(delivery.files.get(delivery.directory.planFiles.empty), { planId: "empty", occurrences: [] });
+  assert.deepEqual(
+    delivery.files.get(delivery.directory.planFiles.empty)!.plans.empty,
+    { planId: "empty", occurrences: [] },
+  );
 });
 
 test("方案客户端拒绝错误身份与错误HTTP响应并传递取消信号", async () => {
@@ -577,32 +691,94 @@ test("方案客户端拒绝错误身份与错误HTTP响应并传递取消信号"
   try {
     globalThis.fetch = (async (_url, options) => {
       assert.equal(options?.signal, controller.signal);
-      return new Response(JSON.stringify({ planId: "other", occurrences: [] }));
+      return new Response(
+        JSON.stringify({
+          plans: { other: { planId: "other", occurrences: [] } },
+        }),
+      );
     }) as typeof fetch;
-    await assert.rejects(loadCoursePlan("selected", url, controller.signal), /不一致/);
-    globalThis.fetch = (async () => new Response("missing", { status: 404 })) as typeof fetch;
+    await assert.rejects(
+      loadCoursePlan("selected", url, controller.signal),
+      /不一致/,
+    );
+    globalThis.fetch = (async () =>
+      new Response("missing", { status: 404 })) as typeof fetch;
     await assert.rejects(loadCoursePlan("selected", url), /404/);
-    globalThis.fetch = (async () => new Response(JSON.stringify({ planId: "selected", occurrences: [{ planId: "other" }] }))) as typeof fetch;
+    globalThis.fetch = (async () =>
+      new Response(
+        JSON.stringify({
+          plans: {
+            selected: {
+              planId: "selected",
+              occurrences: [{ planId: "other" }],
+            },
+          },
+        }),
+      )) as typeof fetch;
     await assert.rejects(loadCoursePlan("selected", url), /不一致/);
-    globalThis.fetch = (async () => new Response(JSON.stringify({ planId: "selected", occurrences: [] }))) as typeof fetch;
-    assert.deepEqual(await loadCoursePlan("selected", url), { planId: "selected", occurrences: [] });
+    globalThis.fetch = (async () =>
+      new Response(
+        JSON.stringify({
+          plans: {
+            selected: { planId: "selected", occurrences: [] },
+            other: { planId: "other", occurrences: [{ planId: "other" }] },
+          },
+        }),
+      )) as typeof fetch;
+    assert.deepEqual(await loadCoursePlan("selected", url), {
+      planId: "selected",
+      occurrences: [],
+    });
   } finally {
     globalThis.fetch = originalFetch;
+  }
+});
+
+test("计划包跨越字节边界后无丢失，单个超大计划仍保持完整", () => {
+  const large = "课".repeat(360000);
+  const index = {
+    ...catalog,
+    plans: ["a", "b", "c"].map((id) => ({ ...catalog.plans[0], id })),
+    occurrences: ["a", "b", "c"].map((id) => ({
+      ...catalog.occurrences[0],
+      id,
+      planId: id,
+      sourceSection: large,
+    })),
+  };
+  const delivery = buildCourseCatalogDelivery(index);
+  assert.equal(delivery.files.size, 3);
+  for (const occurrence of index.occurrences) {
+    const bundle = delivery.files.get(
+      delivery.directory.planFiles[occurrence.planId],
+    )!;
+    assert.deepEqual(bundle.plans[occurrence.planId].occurrences, [occurrence]);
   }
 });
 
 test("真实根与新增分片输入受watch覆盖且缓存随输入变化失效", () => {
   const root = mkdtempSync(join(tmpdir(), "course-watch-"));
   try {
-    const inputs = [join(root, "data", "manifest.json"), join(root, "config", "routes.json")];
-    for (const input of inputs) mkdirSync(join(input, "..", ".fireworks-json"), { recursive: true });
+    const inputs = [
+      join(root, "data", "manifest.json"),
+      join(root, "config", "routes.json"),
+    ];
+    for (const input of inputs)
+      mkdirSync(join(input, "..", ".fireworks-json"), { recursive: true });
     const patterns = courseCatalogWatchFiles(inputs);
     const save = (input: string, value: unknown) => {
       const bytes = JSON.stringify(value);
       const sha256 = createHash("sha256").update(bytes).digest("hex");
       const shard = join(input, "..", ".fireworks-json", `${sha256}.json`);
       writeFileSync(shard, bytes);
-      writeFileSync(input, JSON.stringify({ $fireworks_shards: 1, kind: "object", parts: [{ sha256, bytes: Buffer.byteLength(bytes) }] }));
+      writeFileSync(
+        input,
+        JSON.stringify({
+          $fireworks_shards: 1,
+          kind: "object",
+          parts: [{ sha256, bytes: Buffer.byteLength(bytes) }],
+        }),
+      );
       return shard.replaceAll("\\", "/");
     };
     for (const input of inputs) {
@@ -610,9 +786,15 @@ test("真实根与新增分片输入受watch覆盖且缓存随输入变化失效
       const cached = readManifestJson(input);
       assert.equal(readManifestJson(input), cached);
       const second = save(input, { value: "second version" });
-      const matched = new Set(patterns.flatMap((pattern) =>
-        [...new Bun.Glob(relative(root, pattern).replaceAll("\\", "/")).scanSync({ cwd: root, absolute: true, dot: true })]
-      ).map((file) => file.replaceAll("\\", "/")));
+      const matched = new Set(
+        patterns
+          .flatMap((pattern) => [
+            ...new Bun.Glob(
+              relative(root, pattern).replaceAll("\\", "/"),
+            ).scanSync({ cwd: root, absolute: true, dot: true }),
+          ])
+          .map((file) => file.replaceAll("\\", "/")),
+      );
       assert.ok(matched.has(input.replaceAll("\\", "/")));
       assert.ok(matched.has(first));
       assert.ok(matched.has(second));
