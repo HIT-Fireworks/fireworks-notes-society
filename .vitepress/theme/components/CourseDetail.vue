@@ -11,7 +11,7 @@ export function serializeResourceFiles(files: CourseDetailFile[]): string {
 
 <script setup lang="ts">
 import type { CourseDetailData, CourseDetailFile, CourseDetailPlan } from "../course-catalog";
-import ResourceFileList from "./ResourceFileList.vue";
+import RepositoryResources from "./RepositoryResources.vue";
 
 const { course, plans } = defineProps<{
   course: CourseDetailData;
@@ -113,10 +113,10 @@ const sectionLabel = (item: DetailArrangement) => {
       <h2 id="course-materials-heading">课程资料</h2>
       <div
         v-if="resourceFiles.length"
-        id="course-resource-root"
+        data-resource-root
         :data-files="serializeResourceFiles(resourceFiles)"
       >
-        <ResourceFileList :files="resourceFiles" />
+        <RepositoryResources :files="resourceFiles" />
       </div>
       <div v-else class="materials-empty">
         <p>这门课暂时没有可浏览的资料。</p>

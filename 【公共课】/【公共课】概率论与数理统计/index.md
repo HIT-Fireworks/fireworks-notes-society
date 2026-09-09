@@ -4,4 +4,4 @@
 
 ## 资料下载
 
-<OList path="/【公共课】/【公共课】概率论与数理统计" />
+<RepositoryResourcePage path="/【公共课】/【公共课】概率论与数理统计" />

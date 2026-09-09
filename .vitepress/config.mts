@@ -16,7 +16,11 @@ export default ({ command }: ConfigEnv) => {
     title: "薪火笔记社",
     description:
       "用一门笔记改变一门课，期末考研竞赛科研社团都涉及的超好用HIT笔记网站！",
-    head: [["link", { rel: "icon", href: "/logo.png" }]],
+    head: [
+      ["link", { rel: "icon", href: "/logo.png" }],
+      ["link", { rel: "stylesheet", href: "/assets/style.css?v=9" }],
+      ["script", { type: "module", src: "/assets/course-resource.js?v=9" }],
+    ],
     buildConcurrency: 8,
     vite: {
       plugins: [

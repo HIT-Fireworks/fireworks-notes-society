@@ -4,4 +4,4 @@
 
 ## 资料下载
 
-<OList path="/物理学院/细分专业课" />
+<RepositoryResourcePage path="/物理学院/细分专业课" />

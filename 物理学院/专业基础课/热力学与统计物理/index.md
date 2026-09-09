@@ -4,4 +4,4 @@
 
 ## 资料下载
 
-<OList path="/物理学院/专业基础课/热力学与统计物理" />
+<RepositoryResourcePage path="/物理学院/专业基础课/热力学与统计物理" />

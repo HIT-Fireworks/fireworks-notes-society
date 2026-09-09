@@ -5,6 +5,7 @@ export interface RepositoryFileEntry {
   repoId: string;
   repoName: string;
   path: string;
+  origin: string;
   name: string;
   routeKind: string;
   courseCodes: string[];
@@ -103,6 +104,7 @@ export function repositoryFileEntries(repoId?: string): RepositoryFileEntry[] {
           repoId: id,
           repoName: repositoryName(repositoryById.get(id), id),
           path: filePath,
+          origin: stringValue(file.origin),
           name: filePath.split("/").pop() || filePath,
           routeKind: stringValue(file.route_kind) || "其他资料",
           courseCodes: Array.isArray(file.course_codes)
@@ -127,6 +129,15 @@ export function repositoryFilesForCourse(
     (entry) =>
       repositories.has(entry.repoId) && entry.courseCodes.includes(courseCode),
   );
+}
+
+/** 将保留的手写页面路径映射到冻结 origin 前缀；仅构建期使用，不访问旧网盘。 */
+export function repositoryFilesForPagePath(pagePath: string): RepositoryFileEntry[] {
+  const normalized = pagePath.replace(/^\/+|\/+$/g, "");
+  return repositoryFileEntries().filter((entry) => {
+    const originPath = entry.origin.replace(/^github:\/\/[^/]+\/[^/]+@[^/]+\//, "");
+    return !normalized || originPath === normalized || originPath.startsWith(`${normalized}/`);
+  });
 }
 
 export function repositoryFileTree(repoId: string): RepositoryFileTreeNode {

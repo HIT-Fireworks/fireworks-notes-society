@@ -4,4 +4,4 @@
 
 ## 资料下载
 
-<OList path="/仪器学院/工程光学" />
+<RepositoryResourcePage path="/仪器学院/工程光学" />

@@ -4,4 +4,4 @@
 
 ## 资料下载
 
-<OList path="/交通科学与工程学院/智能交通导论" />
+<RepositoryResourcePage path="/交通科学与工程学院/智能交通导论" />

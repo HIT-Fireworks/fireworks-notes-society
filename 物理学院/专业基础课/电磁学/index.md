@@ -4,4 +4,4 @@
 
 ## 资料下载
 
-<OList path="/物理学院/专业基础课/电磁学" />
+<RepositoryResourcePage path="/物理学院/专业基础课/电磁学" />

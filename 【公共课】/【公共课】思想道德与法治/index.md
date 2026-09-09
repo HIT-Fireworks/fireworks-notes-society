@@ -14,4 +14,4 @@
 
 ## 资料下载
 
-<OList path="/【公共课】/【公共课】思想道德与法治" />
+<RepositoryResourcePage path="/【公共课】/【公共课】思想道德与法治" />

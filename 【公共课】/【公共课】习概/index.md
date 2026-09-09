@@ -4,4 +4,4 @@
 
 ## 资料下载
 
-<OList path="/【公共课】/【公共课】习概" />
+<RepositoryResourcePage path="/【公共课】/【公共课】习概" />

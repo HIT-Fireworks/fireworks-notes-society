@@ -18,4 +18,4 @@
 
 ## 资料下载
 
-<OList path="/【公共课】/【公共课】计算思维与人工智能" />
+<RepositoryResourcePage path="/【公共课】/【公共课】计算思维与人工智能" />

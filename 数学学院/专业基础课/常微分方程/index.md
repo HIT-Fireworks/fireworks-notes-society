@@ -4,4 +4,4 @@
 
 ## 资料下载
 
-<OList path="/数学学院/专业基础课/常微分方程" />
+<RepositoryResourcePage path="/数学学院/专业基础课/常微分方程" />

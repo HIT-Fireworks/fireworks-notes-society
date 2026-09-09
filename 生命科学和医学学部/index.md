@@ -4,4 +4,4 @@
 
 ## 资料下载
 
-<OList path="/生命科学和医学学部" />
+<RepositoryResourcePage path="/生命科学和医学学部" />

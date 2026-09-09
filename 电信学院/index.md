@@ -4,4 +4,4 @@
 
 ## 资料下载
 
-<OList path="/电信学院" />
+<RepositoryResourcePage path="/电信学院" />

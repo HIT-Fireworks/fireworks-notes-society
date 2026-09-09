@@ -6,4 +6,4 @@
 
 ## 资料下载
 
-<OList path="/【公共课】" />
+<RepositoryResourcePage path="/【公共课】" />

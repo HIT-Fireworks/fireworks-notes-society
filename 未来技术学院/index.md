@@ -4,4 +4,4 @@
 
 ## 资料下载
 
-<OList path="/未来技术学院" />
+<RepositoryResourcePage path="/未来技术学院" />

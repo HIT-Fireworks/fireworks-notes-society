@@ -9,8 +9,6 @@
     "docs:preview": "node node_modules/vitepress/bin/vitepress.js preview",
     "test:courses": "bun test scripts/course-catalog.test.mts",
     "update-campus": "bun scripts/update-campus-url.mjs",
-    "audit:openlist": "bun scripts/audit-openlist-structure.mjs",
-    "audit:openlist:self-test": "bun scripts/audit-openlist-structure.mjs --self-test",
     "format": "bun --bun prettier --write ."
   },
   "keywords": [

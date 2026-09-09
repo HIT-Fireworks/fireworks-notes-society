@@ -4,4 +4,4 @@
 
 ## 资料下载
 
-<OList path="/询问中" />
+<RepositoryResourcePage path="/询问中" />

@@ -2,8 +2,7 @@
 import type { Theme } from "vitepress";
 import DefaultTheme from "vitepress/theme";
 import "./style.css";
-import OList from "./components/OList.vue";
-import OListItem from "./components/OListItem.vue";
+import RepositoryResourcePage from "./components/RepositoryResourcePage.vue";
 import GLayout from "./GLayout.vue";
 import { installPrimeVue } from "./primevue";
 
@@ -13,7 +12,6 @@ export default {
   Layout: GLayout,
   enhanceApp({ app }) {
     installPrimeVue(app);
-    app.component("OList", OList);
-    app.component("OListItem", OListItem);
+    app.component("RepositoryResourcePage", RepositoryResourcePage);
   },
 } satisfies Theme;

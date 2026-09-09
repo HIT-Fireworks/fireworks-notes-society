@@ -4,4 +4,4 @@
 
 ## 资料下载
 
-<OList path="/经管学院" />
+<RepositoryResourcePage path="/经管学院" />

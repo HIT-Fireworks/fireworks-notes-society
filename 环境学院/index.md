@@ -4,4 +4,4 @@
 
 ## 资料下载
 
-<OList path="/环境学院" />
+<RepositoryResourcePage path="/环境学院" />

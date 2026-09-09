@@ -4,4 +4,4 @@ PPT 及报告模板资料分类入口，不按普通学院课程结构维护。
 
 ## 资料下载
 
-<OList path="/薪火笔记社-PPT及报告模板" />
+<RepositoryResourcePage path="/薪火笔记社-PPT及报告模板" />

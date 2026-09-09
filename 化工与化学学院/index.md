@@ -4,4 +4,4 @@
 
 ## 资料下载
 
-<OList path="/化工与化学学院" />
+<RepositoryResourcePage path="/化工与化学学院" />

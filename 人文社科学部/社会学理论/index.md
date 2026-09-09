@@ -6,4 +6,4 @@
 
 ## 资料下载
 
-<OList path="/人文社科学部/社会学理论"/>
+<RepositoryResourcePage path="/人文社科学部/社会学理论"/>

@@ -4,4 +4,4 @@
 
 ## 资料下载
 
-<OList path="/土木工程学院" />
+<RepositoryResourcePage path="/土木工程学院" />

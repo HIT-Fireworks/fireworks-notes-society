@@ -4,4 +4,4 @@
 
 ## 资料下载
 
-<OList path="/仪器学院" />
+<RepositoryResourcePage path="/仪器学院" />

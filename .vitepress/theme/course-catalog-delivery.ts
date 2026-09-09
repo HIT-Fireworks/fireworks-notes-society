@@ -12,6 +12,7 @@ import {
   type CourseCatalogOccurrence,
   type CourseDetailCatalog,
 } from "./course-catalog";
+import { repositoryFileEntries, repositoryFilesForPagePath } from "./repository-resources";
 const buildStateKey = Symbol.for("fireworks.course-catalog-build.v1");
 interface CourseCatalogBuildState {
   directory: string;
@@ -147,6 +148,7 @@ export async function publishPreparedCourseCatalog(
       path.join(outDir, "course-plans"),
       { recursive: true },
     );
+    await cp(path.join(prepared.directory, "repository-resources.json"), path.join(outDir, "repository-resources.json"));
     if (!mpa)
       await cp(
         path.join(prepared.directory, "course-details"),
@@ -178,6 +180,8 @@ async function publishCourseDetails(outDir: string): Promise<void> {
 
 /** Shared by both VitePress build modes and the optional publication CLI. */
 export async function publishCourseCatalog(outDir: string): Promise<void> {
+  await mkdir(outDir, { recursive: true });
+  await writeFile(path.join(outDir, "repository-resources.json"), JSON.stringify(repositoryFileEntries()), "utf8");
   const { directory, files } = getCourseCatalogDelivery();
   await mkdir(path.join(outDir, "course-plans"), { recursive: true });
   await writeFile(
@@ -198,6 +202,8 @@ export async function publishCourseCatalog(outDir: string): Promise<void> {
 export function courseCatalogDeliveryPlugin(): Plugin {
   const virtualId = "virtual:course-detail";
   const resolvedId = `\0${virtualId}`;
+  const resourcesId = "virtual:repository-resources";
+  const resolvedResourcesId = `\0${resourcesId}`;
   let outputDirectory = "";
   let detailIndex: CourseDetailCatalog | undefined;
   let detailCodes = new Map<string, string>();
@@ -208,8 +214,35 @@ export function courseCatalogDeliveryPlugin(): Plugin {
     },
     resolveId(id) {
       if (id === virtualId) return resolvedId;
+      if (id === resourcesId) return resolvedResourcesId;
     },
     load(id, options) {
+      if (id === resolvedResourcesId) {
+        const select = `const normalized = pagePath.replace(/^\\/+|\\/+$/g, "");
+          return entries.filter(entry => {
+            const original = entry.origin.replace(/^github:\\/\\/[^/]+\\/[^/]+@[^/]+\\//, "");
+            return !normalized || original === normalized || original.startsWith(normalized + "/");
+          }).map(({ repoId, repoName, path, name, routeKind, size }) => ({ repoId, repoName, path, name, routeKind, size }));`;
+        if (options?.ssr) {
+          const prepared = buildState[buildStateKey];
+          if (prepared) return `import { readFile } from "node:fs/promises";
+            let data;
+            export async function loadRepositoryResources(pagePath) {
+              const entries = await (data ??= readFile(${JSON.stringify(path.join(prepared.directory, "repository-resources.json"))}, "utf8").then(JSON.parse));
+              ${select}
+            }`;
+          return `import { repositoryFilesForPagePath } from ${JSON.stringify(path.resolve(import.meta.dirname, "repository-resources.ts"))};
+            export async function loadRepositoryResources(pagePath) { return repositoryFilesForPagePath(pagePath); }`;
+        }
+        return `let data;
+          export async function loadRepositoryResources(pagePath) {
+            const entries = await (data ??= fetch("/repository-resources.json").then(response => {
+              if (!response.ok) throw new Error("资料索引加载失败：" + response.status);
+              return response.json();
+            }).catch(error => { data = undefined; throw error; }));
+            ${select}
+          }`;
+      }
       if (id !== resolvedId) return;
       const check = `if (!/^[a-f0-9]{64}\\.json$/.test(file)) throw new Error("课程详情地址无效");`;
       if (options?.ssr) {
@@ -231,6 +264,7 @@ export function courseCatalogDeliveryPlugin(): Plugin {
         const url = (request.url ?? "").split("?")[0];
         if (
           url !== "/course-catalog.json" &&
+          url !== "/repository-resources.json" &&
           !url.startsWith("/course-plans/") &&
           !url.startsWith("/course-details/")
         )
@@ -242,7 +276,9 @@ export function courseCatalogDeliveryPlugin(): Plugin {
         }
         try {
           let payload: unknown;
-          if (url.startsWith("/course-details/")) {
+          if (url === "/repository-resources.json") {
+            payload = repositoryFileEntries();
+          } else if (url.startsWith("/course-details/")) {
             const catalog = getCourseDetailCatalog();
             if (detailIndex !== catalog) {
               detailIndex = catalog;

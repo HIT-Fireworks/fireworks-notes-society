@@ -4,4 +4,4 @@
 
 ## 资料下载
 
-<OList path="/【公共课】/【公共课】线性代数与空间解析几何" />
+<RepositoryResourcePage path="/【公共课】/【公共课】线性代数与空间解析几何" />

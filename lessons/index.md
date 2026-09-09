@@ -4,4 +4,4 @@
 
 ## 资料下载
 
-<OList />
+<RepositoryResourcePage />

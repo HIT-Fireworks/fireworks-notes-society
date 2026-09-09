@@ -4,4 +4,4 @@
 
 ## 资料下载
 
-<OList path="/机电工程学院/电工技术" />
+<RepositoryResourcePage path="/机电工程学院/电工技术" />

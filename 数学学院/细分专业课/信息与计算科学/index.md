@@ -4,4 +4,4 @@
 
 ## 资料下载
 
-<OList path="/数学学院/细分专业课/信息与计算科学" />
+<RepositoryResourcePage path="/数学学院/细分专业课/信息与计算科学" />

@@ -1,0 +1,31 @@
+name: Site contract checks
+on:
+  pull_request:
+    paths:
+      - '.vitepress/**'
+      - 'edge-functions/**'
+      - 'scripts/**'
+      - 'package.json'
+      - 'bun.lock'
+      - 'vite.*.mts'
+      - '.github/workflows/site-checks.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: site-checks-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.3.12'
+      - run: bun install --frozen-lockfile
+      - name: Verify course and download contracts
+        run: bun test scripts/course-catalog.test.mts scripts/course-page-build.test.mts scripts/repository-resources.test.mts scripts/manifest-store.test.mts

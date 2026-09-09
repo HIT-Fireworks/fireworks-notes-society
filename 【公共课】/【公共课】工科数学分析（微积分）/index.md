@@ -4,4 +4,4 @@
 
 ## 资料下载
 
-<OList path="/【公共课】/【公共课】工科数学分析（微积分）" />
+<RepositoryResourcePage path="/【公共课】/【公共课】工科数学分析（微积分）" />

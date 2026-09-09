@@ -4,4 +4,4 @@
 
 ## 资料下载
 
-<OList path="/实验报告" />
+<RepositoryResourcePage path="/实验报告" />

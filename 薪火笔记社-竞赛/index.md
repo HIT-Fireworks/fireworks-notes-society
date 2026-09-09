@@ -4,4 +4,4 @@
 
 ## 资料下载
 
-<OList path="/薪火笔记社-竞赛" />
+<RepositoryResourcePage path="/薪火笔记社-竞赛" />

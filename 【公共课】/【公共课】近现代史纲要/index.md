@@ -4,4 +4,4 @@
 
 ## 资料下载
 
-<OList path="/【公共课】/【公共课】近现代史纲要" />
+<RepositoryResourcePage path="/【公共课】/【公共课】近现代史纲要" />

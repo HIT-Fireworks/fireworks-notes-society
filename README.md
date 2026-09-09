@@ -1,6 +1,6 @@
 # 薪火笔记社 🔥
 
-[![Deploy to Pages](https://github.com/HIT-Fireworks/fireworks-notes-society/actions/workflows/deploy.yml/badge.svg)](https://github.com/HIT-Fireworks/fireworks-notes-society/actions/workflows/deploy.yml)
+[![Site contract checks](https://github.com/HIT-Fireworks/fireworks-notes-society/actions/workflows/site-checks.yml/badge.svg)](https://github.com/HIT-Fireworks/fireworks-notes-society/actions/workflows/site-checks.yml)
 [![License: MPL-2.0](https://img.shields.io/badge/License-MPL%202.0-brightgreen.svg)](https://opensource.org/licenses/MPL-2.0)
 [![Content License: CC BY-NC-SA 4.0](https://img.shields.io/badge/Content%20License-CC%20BY--NC--SA%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
 
@@ -29,7 +29,7 @@
 ```
 fireworks-notes-society/
 ├── .vitepress/          # VitePress 配置
-├── .github/workflows/   # GitHub Actions 自动部署
+├── .github/workflows/   # 代码变更的契约检查
 ├── public/              # 静态资源
 ├── lessons/             # 课程笔记索引
 ├── <学院或资料分类>/    # 手写 Markdown 课程与资料入口
@@ -48,7 +48,7 @@ fireworks-notes-society/
 
 每个课程代码都有稳定的 `/courses/<课程代码>` 页面，展示课程基本信息、覆盖专业与推荐学期、资料数量/分类/容量及 GitHub 课程仓库入口。没有资料的课程也保留在目录中，方便后续贡献。
 
-当前数据包含 4,613 份培养方案及执行教学计划、16,431 个课程代码、226,560 条原始记录，其中 224,601 条有代码课程安排按计划 ID 完整保存在数据包中，323 门课程已有资料。没有代码的原始记录仍完整保留在管理数据中。`/lessons` 继续保留原有 OpenList 资料下载入口。
+当前数据包含 4,613 份培养方案及执行教学计划、16,431 个课程代码、226,560 条原始记录，其中 224,601 条有代码课程安排按计划 ID 完整保存在数据包中，323 门课程已有资料。没有代码的原始记录仍完整保留在管理数据中。`/lessons` 与手写资料页直接使用 Registry 文件路由，不再依赖 OpenList 或旧附件仓库。
 
 课程目录维护：
 
@@ -64,47 +64,32 @@ fireworks-notes-society/
 
 ## 资料入口与旧页面
 
-`/lessons` 仍是原有资料下载入口，课程中心负责课程发现和课程元数据展示，两者互补，不删除既有手写课程页面。
+`/lessons` 展示全部仓库资料，课程中心负责课程发现和元数据展示。手写资料页通过冻结来源路径确定展示范围，下载始终使用当前仓库路由；软件包和多文件文档保留实际相对路径。旧附件路径只用于来源追溯，不作为生产下载后端。
 
 ## 🛠️ 技术栈
 
 - **框架**：[VitePress](https://vitepress.dev/) - Vue 驱动的静态站点生成器
 - **样式**：[Tailwind CSS](https://tailwindcss.com/) + [PrimeVue](https://primevue.org/)
-- **部署**：GitHub Pages + GitHub Actions 自动化部署
+- **部署**：EdgeOne 自动生产部署；GitHub Actions 仅保留 PR 代码契约检查及手动验收，不重复构建并部署 GitHub Pages。
 - **包管理 / 运行时**：Bun
 
-### 本地仓库状态 TUI
+## 仓库维护与资料分类
 
-仓库状态 TUI 使用 Rust 的 `ratatui` 与 `crossterm`。默认读取 116 个 production 仓库的课程代码原子化 canonical `data/repository-manifest.json`、`config/repository-topology.v3.json`、`config/repository-file-routes.v3.json`，以及课程代码原子化迁移执行与验证报告。界面中的“检查课程代码原子计划”和“核验课程代码原子内容”都是只读操作；不会从 TUI 发起远端写入或删除。
+当前生产管理工具位于 [fireworks-repos-management-v2](https://github.com/HIT-Fireworks/fireworks-repos-management-v2)，权威数据位于 [fireworks-course-registry-v2](https://github.com/HIT-Fireworks/fireworks-course-registry-v2)。主站中的旧 Python 管理器、旧 TUI、迁移计划和版本化历史审计仅作为历史实现与证据，不应用于修改当前数据。
 
-```bash
-# 构建并运行全屏 TUI
-cargo run --manifest-path repository-tui/Cargo.toml -- --root .
+资料直接归属仓库，不再维护资源组实体。每个完整课程代码只归属一个资料仓；共享文件关联的课程不能拆到不同仓库。维护边界需要分开时拆仓，不以仓内资源组代替。
 
-# 非交互检查 canonical manifest、v3 topology/routes 与原子化终态
-cargo run --manifest-path repository-tui/Cargo.toml -- --check --root .
+资料使用预设中文分类：`教材/`、`笔记/`、`课件/`、`试卷/`、`作业/`、`实验/`、`软件/`、`教程/`、`模板/`、`项目/`、`其他/`。只创建有实际文件的分类，不添加空目录占位文件。维护者不得自行新增根级分类；确有新分类需要时，先统一修改管理规则。仓库根目录仅保留 README、LICENSE、repository.toml 和必要配置；软件包、代码项目、多文件文档在分类内保留完整结构。
 
-# 编译与单元测试
-cargo check --manifest-path repository-tui/Cargo.toml
-cargo test --manifest-path repository-tui/Cargo.toml
+当前快照包括 176 个受控仓库，其中 117 个有资料仓，完整维护 3,857 个原始文件（9,159,380,782 字节）。资料及模板仓不运行独立 CI；Registry 集中核验分片、课程绑定、教学计划索引和文件路径；主站代码检查及管理工具测试只在相应 PR 或手动验收时运行，Windows 包仅按发布 Tag 或手动打包。
+
+```sh
+python scripts/validate-registry.py --root .
+bun run test:courses
+bun run docs:build
 ```
 
-兼容入口 `python scripts/repository_management.py tui` 只负责定位并启动上述 Rust 二进制；TUI 本身不执行 Python 菜单或课程处理逻辑。
-
-课程代码原子化收敛已完成：远端精确包含 116 个 production 仓库，以及固定保留的 `fireworks-attachments` 和 `fireworks-notes-society`，合计 118 个仓库。83 个退出仓库已按冻结的 `node_id`、commit 和 tree 逐项删除并确认 404；3,857 个文件（9,159,380,782 B）、76 个操作目标仓和 13,309 个 Registry 受控文件均已复核。
-
-新的仓库模型以培养方案中的课程代码为不可拆分原子；同一冻结资料文件通过多个 `route_keys` 连接的课程代码形成不可拆分共享资料连通分量。历史 ResourceGroup 仅保留为导航、审计和迁移血缘证据，不再约束物理仓库演进。无资料课程代码按唯一开课单位合并，课程类别只作为审计标签。
-
-本地 canonical 状态：
-
-- `data/repository-manifest.json`：116 仓课程代码原子化 production manifest。
-- `config/repository-topology.v3.json`：116 仓显式拓扑。
-- `config/repository-file-routes.v3.json`：3,857 条文件路由与 2,618 条课程代码路由。
-- `data/repository-manifest.resource-aware-192.v2.json`：上一轮 192 仓资料感知历史快照。
-- `data/repository-manifest.legacy-255.v1.json`：更早的 255 仓历史快照。
-- `data/course-code-atomic-repository-convergence-verification.v1.json`：118 仓远端终态验证证据。
-
-旧 `execute-final-repository-convergence.py`、资料感知上一轮执行器、旧迁移报告和旧清理报告均作为历史执行证据保留，不再作为默认生产入口。
+一次性迁移执行器与冻结证据位于 `scripts/complete-repository-cutover.py` 和 `data/repository-flat-migration/`，不是日常内容管理入口。
 
 ## 🚀 快速开始
 

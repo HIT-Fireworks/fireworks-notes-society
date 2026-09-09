@@ -4,4 +4,4 @@
 
 ## 资料下载
 
-<OList path="/【公共课】/【工科公共课】工程制图" />
+<RepositoryResourcePage path="/【公共课】/【工科公共课】工程制图" />

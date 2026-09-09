@@ -4,4 +4,4 @@
 
 ## 资料下载
 
-<OList path="/【公共课】/【公共课】马克思主义原理" />
+<RepositoryResourcePage path="/【公共课】/【公共课】马克思主义原理" />
