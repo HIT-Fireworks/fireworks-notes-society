@@ -1,6 +1,8 @@
 /.vitepress/cache
 /.vitepress/dist
 /.vitepress/.temp
+/.edgeone/
+/.env
 /node_modules/
 /.worktrees/
 /.workspaces/

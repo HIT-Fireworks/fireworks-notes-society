@@ -10,7 +10,11 @@ export function serializeResourceFiles(files: CourseDetailFile[]): string {
 </script>
 
 <script setup lang="ts">
-import type { CourseDetailData, CourseDetailFile, CourseDetailPlan } from "../course-catalog";
+import type {
+  CourseDetailData,
+  CourseDetailFile,
+  CourseDetailPlan,
+} from "../course-catalog";
 import RepositoryResources from "./RepositoryResources.vue";
 
 const { course, plans } = defineProps<{
@@ -43,7 +47,10 @@ const planIdentity = (item: DetailArrangement) => {
 };
 const majorLabel = (item: DetailArrangement) => {
   const plan = arrangementPlan(item);
-  return [plan.majorFullName || plan.majorName || "专业名称未标注", plan.programType]
+  return [
+    plan.majorFullName || plan.majorName || "专业名称未标注",
+    plan.programType,
+  ]
     .filter(Boolean)
     .join(" · ");
 };
@@ -56,8 +63,12 @@ const sectionLabel = (item: DetailArrangement) => {
     "execution-double-degree-minor": "双学位与辅修要求",
   };
   const label = labels[item.sourceSection ?? ""] ?? "安排来源未标注";
-  const relation = [item.moduleId ? `模块：${item.moduleId}` : "",
-    item.directionKey && item.directionKey !== "0" ? `方向：${item.directionKey}` : ""];
+  const relation = [
+    item.moduleId ? `模块：${item.moduleId}` : "",
+    item.directionKey && item.directionKey !== "0"
+      ? `方向：${item.directionKey}`
+      : "",
+  ];
   return [label, ...relation].filter(Boolean).join(" · ");
 };
 </script>
@@ -111,6 +122,52 @@ const sectionLabel = (item: DetailArrangement) => {
       aria-labelledby="course-materials-heading"
     >
       <h2 id="course-materials-heading">课程资料</h2>
+      <aside
+        v-if="course.repositories.length"
+        class="repository-coverage"
+        aria-label="资料仓库的课程覆盖范围"
+      >
+        <div
+          v-for="repository in course.repositories"
+          :key="repository.repoId"
+          class="repository-scope"
+        >
+          <p class="repository-scope-heading">
+            <a
+              :href="repository.githubUrl"
+              target="_blank"
+              rel="noopener noreferrer"
+              >{{
+                course.repositories.length === 1
+                  ? "当前资料仓库"
+                  : repository.repoId
+              }}</a
+            >
+            包含
+            <strong>{{
+              repository.courseCodeCount.toLocaleString("zh-CN")
+            }}</strong>
+            个课程代码
+          </p>
+          <p
+            v-if="repository.courseNamePreview.length"
+            class="repository-course-names"
+          >
+            涉及课程：{{ repository.courseNamePreview.join("、")
+            }}<span v-if="repository.courseNameCount !== undefined"
+              >……等
+              {{ repository.courseNameCount.toLocaleString("zh-CN") }}
+              个课程名称</span
+            >
+          </p>
+          <p v-else class="repository-course-names">
+            这些课程代码暂未提供课程名称。
+          </p>
+        </div>
+        <p class="material-ownership-note" role="note">
+          请注意分辨资料归属：同一仓库可能收录不同课程的资料，请结合文件名、课程代码和内容确认。
+        </p>
+      </aside>
       <div
         v-if="resourceFiles.length"
         data-resource-root
@@ -126,26 +183,6 @@ const sectionLabel = (item: DetailArrangement) => {
           rel="noopener noreferrer"
           >提交资料线索</a
         >
-      </div>
-      <div v-if="course.repositories.length" class="material-sources">
-        <span>资料来源</span>
-        <ul>
-          <li
-            v-for="repository in course.repositories"
-            :key="repository.repoId"
-          >
-            <a
-              :href="repository.githubUrl"
-              target="_blank"
-              rel="noopener noreferrer"
-              >{{
-                course.repositories.length === 1
-                  ? "GitHub"
-                  : repository.displayName
-              }}</a
-            >
-          </li>
-        </ul>
       </div>
     </section>
 
@@ -165,12 +202,18 @@ const sectionLabel = (item: DetailArrangement) => {
           </thead>
           <tbody>
             <tr v-for="item in course.majors" :key="item.occurrenceId">
-              <td data-label="来源">{{ sourceLabel(arrangementPlan(item).sourceKind) }}</td>
+              <td data-label="来源">
+                {{ sourceLabel(arrangementPlan(item).sourceKind) }}
+              </td>
               <td data-label="版本 / 年级">{{ planIdentity(item) }}</td>
-              <td data-label="培养学院">{{ arrangementPlan(item).school || "未标注" }}</td>
+              <td data-label="培养学院">
+                {{ arrangementPlan(item).school || "未标注" }}
+              </td>
               <td data-label="专业">
                 {{ majorLabel(item) }}
-                <span class="major-code">{{ arrangementPlan(item).majorCode || "代码未标注" }}</span>
+                <span class="major-code">{{
+                  arrangementPlan(item).majorCode || "代码未标注"
+                }}</span>
               </td>
               <td data-label="安排">{{ sectionLabel(item) }}</td>
               <td data-label="学期">{{ readableTerm(item.term) }}</td>
@@ -288,25 +331,32 @@ const sectionLabel = (item: DetailArrangement) => {
   margin: 0 0 8px;
   color: var(--vp-c-text-2);
 }
-.material-sources {
-  display: flex;
-  align-items: baseline;
-  gap: 8px 12px;
-  margin-top: 12px;
-  color: var(--vp-c-text-2);
+.repository-coverage {
+  margin-bottom: 18px;
+  padding: 14px 16px;
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 8px;
+  background: var(--vp-c-bg-soft);
   font-size: 13px;
 }
-.material-sources > span {
-  flex-shrink: 0;
+.repository-scope + .repository-scope {
+  margin-top: 12px;
 }
-.material-sources ul {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 16px;
-  min-width: 0;
+.repository-scope-heading {
   margin: 0;
-  padding: 0;
-  list-style: none;
+  color: var(--vp-c-text-1);
+}
+.repository-course-names {
+  margin: 5px 0 0;
+  color: var(--vp-c-text-2);
+  line-height: 1.8;
+}
+.material-ownership-note {
+  margin: 12px 0 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--vp-c-divider);
+  color: var(--vp-c-text-2);
+  line-height: 1.7;
 }
 .course-supplement {
   margin-top: 32px;

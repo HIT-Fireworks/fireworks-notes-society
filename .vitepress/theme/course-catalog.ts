@@ -98,8 +98,11 @@ export interface CourseDetailData extends CourseCatalogCourse {
   }>;
   repositories: Array<{
     repoId: string;
-    displayName: string;
     githubUrl: string;
+    courseCodeCount: number;
+    /** 仅在名称有省略时保存总数，否则预览已包含全部已知名称。 */
+    courseNameCount?: number;
+    courseNamePreview: string[];
     fileCount: number;
     bytes: number;
     categories: Array<{ name: string; count: number }>;
@@ -125,7 +128,6 @@ export interface CourseCatalogManifestData {
   course_descriptors: JsonObject[];
   repositories: JsonObject[];
 }
-
 
 let sourceCache: WeakRef<CourseCatalogManifestData> | undefined;
 let indexCache: CourseCatalogIndex | undefined;
@@ -176,6 +178,48 @@ function unique(values: Iterable<string>): string[] {
   return Array.from(new Set(Array.from(values).filter(Boolean))).sort((a, b) =>
     a.localeCompare(b, "zh-CN"),
   );
+}
+
+/** 构建时用字符二元组的 Jaccard 距离做最远点采样，优先露出不同名称。 */
+export function selectDiverseCourseNames(
+  names: Iterable<string>,
+  limit = 4,
+): string[] {
+  const candidates = unique(names)
+    .map((name) => {
+      const normalized = name
+        .normalize("NFKC")
+        .toLowerCase()
+        .replace(/[^\p{L}\p{N}]/gu, "");
+      const chars = Array.from(normalized || name);
+      const grams = new Set<string>();
+      if (chars.length === 1) grams.add(chars[0]);
+      for (let i = 1; i < chars.length; i++) grams.add(chars[i - 1] + chars[i]);
+      return { name, length: chars.length, grams, nearest: 1, selected: false };
+    })
+    .sort(
+      (a, b) => a.length - b.length || a.name.localeCompare(b.name, "zh-CN"),
+    );
+  const preview: string[] = [];
+  let next: (typeof candidates)[number] | undefined = candidates[0];
+  while (next && preview.length < limit) {
+    next.selected = true;
+    preview.push(next.name);
+    let best: (typeof candidates)[number] | undefined;
+    for (const candidate of candidates) {
+      if (candidate.selected) continue;
+      let intersection = 0;
+      for (const gram of next.grams) {
+        if (candidate.grams.has(gram)) intersection++;
+      }
+      const union = next.grams.size + candidate.grams.size - intersection;
+      const distance = union ? 1 - intersection / union : 0;
+      candidate.nearest = Math.min(candidate.nearest, distance);
+      if (!best || candidate.nearest > best.nearest) best = candidate;
+    }
+    next = best;
+  }
+  return preview;
 }
 
 export function courseSlug(code: string): string {
@@ -272,12 +316,6 @@ export function buildCourseCatalog(
     if (code) descriptorByCode.set(code, descriptor);
   }
 
-  const repositoryById = new Map<string, JsonObject>();
-  for (const repository of manifest.repositories) {
-    const id = text(repository.repo_id);
-    if (id) repositoryById.set(id, repository);
-  }
-
   const filesByCode = new Map<string, RepositoryFileEntry[]>();
   const filesByRepo = new Map<string, RepositoryFileEntry[]>();
   for (const file of resourceFiles) {
@@ -305,7 +343,9 @@ export function buildCourseCatalog(
     if (planId) plansById.get(planId)?.terms.push(term);
     if (!code) continue;
     if (!planId || !plansById.has(planId)) {
-      throw new Error(`课程记录 ${code} 引用了不存在的方案 ${planId || "(空)"}`);
+      throw new Error(
+        `课程记录 ${code} 引用了不存在的方案 ${planId || "(空)"}`,
+      );
     }
     const sourceSection = text(record.source_section);
     const sourceOrdinal = scalarText(record.source_ordinal);
@@ -351,6 +391,63 @@ export function buildCourseCatalog(
     ...recordsByCode.keys(),
     ...filesByCode.keys(),
   ]);
+  const identities = new Map<string, { name: string; aliases: string[] }>();
+  const repoIdsByCode = new Map<string, string[]>();
+  const codesByRepo = new Map<string, Set<string>>();
+  const includeCode = (repoId: string, code: string) => {
+    if (!repoId || !code) return;
+    let members = codesByRepo.get(repoId);
+    if (!members) codesByRepo.set(repoId, (members = new Set()));
+    members.add(code);
+  };
+  for (const repository of manifest.repositories) {
+    if (!Array.isArray(repository.course_codes)) continue;
+    for (const code of repository.course_codes) {
+      includeCode(text(repository.repo_id), text(code));
+    }
+  }
+  for (const code of codes) {
+    const descriptor = descriptorByCode.get(code);
+    const records = recordsByCode.get(code) ?? [];
+    const repoIds = unique([
+      text(descriptor?.repo_id),
+      ...records.map((record) => text(record.repo_id)),
+      ...(filesByCode.get(code) ?? []).map((file) => file.repoId),
+    ]);
+    repoIdsByCode.set(code, repoIds);
+    for (const repoId of repoIds) includeCode(repoId, code);
+    const names = unique([
+      text(descriptor?.course_name),
+      ...records.map((record) => text(record.course_name)),
+    ]);
+    const name = text(descriptor?.course_name) || names[0] || code;
+    identities.set(code, {
+      name,
+      aliases: names.filter((value) => value !== name),
+    });
+  }
+  const coverageByRepo = new Map<
+    string,
+    {
+      courseCodeCount: number;
+      courseNameCount?: number;
+      courseNamePreview: string[];
+    }
+  >();
+  for (const [repoId, members] of codesByRepo) {
+    const names = unique(
+      Array.from(members, (code) => {
+        const name = identities.get(code)?.name;
+        return name && name !== code ? name : "";
+      }),
+    );
+    const preview = selectDiverseCourseNames(names);
+    coverageByRepo.set(repoId, {
+      courseCodeCount: members.size,
+      courseNameCount: names.length > preview.length ? names.length : undefined,
+      courseNamePreview: preview,
+    });
+  }
   const courses: CourseCatalogCourse[] = [];
   const details = new Map<string, CourseDetailData>();
   const detailPlans: CourseDetailPlan[] = Array.from(plansById.values())
@@ -377,17 +474,11 @@ export function buildCourseCatalog(
     detailPlans.map((plan, index) => [plan.id, index]),
   );
   for (const code of codes) {
-    const descriptor = descriptorByCode.get(code);
     const records = recordsByCode.get(code) ?? [];
     const files = filesByCode.get(code) ?? [];
-    const repoIds = unique([
-      text(descriptor?.repo_id),
-      ...records.map((record) => text(record.repo_id)),
-      ...files.map((file) => file.repoId),
-    ]);
+    const repoIds = repoIdsByCode.get(code)!;
     const repositoryFiles = files;
     const repositories = repoIds.map((repoId) => {
-      const repository = repositoryById.get(repoId);
       const filesForRepository = (filesByRepo.get(repoId) ?? []).filter(
         (file) => file.courseCodes.includes(code),
       );
@@ -398,8 +489,8 @@ export function buildCourseCatalog(
       }
       return {
         repoId,
-        displayName: text(repository?.display_name) || repoId,
         githubUrl: `https://github.com/HIT-Fireworks/${repoId}`,
+        ...coverageByRepo.get(repoId)!,
         fileCount: filesForRepository.length,
         bytes: filesForRepository.reduce((sum, file) => sum + file.size, 0),
         categories: Array.from(categoryCounts, ([name, count]) => ({
@@ -434,15 +525,11 @@ export function buildCourseCatalog(
           semesterOrder(a.term) - semesterOrder(b.term) ||
           a.occurrenceId.localeCompare(b.occurrenceId),
       );
-    const names = unique([
-      text(descriptor?.course_name),
-      ...records.map((record) => text(record.course_name)),
-    ]);
-    const name = text(descriptor?.course_name) || names[0] || code;
+    const { name, aliases } = identities.get(code)!;
     const summary: CourseCatalogCourse = {
       code,
       name,
-      aliases: names.filter((value) => value !== name),
+      aliases,
       offeringColleges: unique(
         records.map((record) => text(record.offering_college)),
       ),
@@ -576,7 +663,8 @@ export function getCourseDetailPage(
     let planIndex = localIndices.get(item.planIndex);
     if (planIndex === undefined) {
       const plan = catalog.plans[item.planIndex];
-      if (!plan) throw new Error(`课程安排引用不存在的方案：${item.occurrenceId}`);
+      if (!plan)
+        throw new Error(`课程安排引用不存在的方案：${item.occurrenceId}`);
       planIndex = plans.length;
       localIndices.set(item.planIndex, planIndex);
       plans.push(plan);
@@ -586,10 +674,14 @@ export function getCourseDetailPage(
   return { course: { ...course, majors }, plans };
 }
 
-export function courseCatalogWatchFiles(sourceFiles = courseCatalogSourceFiles()): string[] {
+export function courseCatalogWatchFiles(
+  sourceFiles = courseCatalogSourceFiles(),
+): string[] {
   return [
     ...sourceFiles,
-    ...sourceFiles.map((file) => path.join(path.dirname(file), ".fireworks-json/*.json")),
+    ...sourceFiles.map((file) =>
+      path.join(path.dirname(file), ".fireworks-json/*.json"),
+    ),
   ].map((file) => file.replaceAll("\\", "/"));
 }
 

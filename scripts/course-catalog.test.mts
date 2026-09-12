@@ -28,6 +28,7 @@ import {
   getCourseCatalogIndex,
   getCourseDetails,
   sortTerms,
+  selectDiverseCourseNames,
 } from "../.vitepress/theme/course-catalog.ts";
 import { createServer } from "vite";
 import coursePaths from "../courses/[code].paths.ts";
@@ -804,4 +805,74 @@ test("真实根与新增分片输入受watch覆盖且缓存随输入变化失效
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
+});
+
+test("仓库预览优先露出不同课程，再展示同课程的近似名称", () => {
+  const names = [
+    "高等数学B",
+    "大学物理Ⅱ",
+    "高等数学",
+    "大学物理",
+    "高等数学A",
+    "大学物理Ⅰ",
+    "概率论与数理统计",
+    "线性代数",
+    "高等数学",
+  ];
+  const preview = selectDiverseCourseNames(names);
+  assert.deepEqual(
+    new Set(preview),
+    new Set(["高等数学", "大学物理", "概率论与数理统计", "线性代数"]),
+  );
+  assert.deepEqual(selectDiverseCourseNames([...names].reverse()), preview);
+  assert.deepEqual(selectDiverseCourseNames(["高等数学", "高等数学"]), [
+    "高等数学",
+  ]);
+  assert.deepEqual(selectDiverseCourseNames([]), []);
+});
+
+test("仓库课程代码总数覆盖无资料及无名称的代码，不受当前页面文件筛选影响", () => {
+  const result = buildCourseCatalog(
+    {
+      curriculum_plans: [],
+      curriculum_records: [],
+      repositories: [
+        {
+          repo_id: "shared",
+          course_codes: ["A", "B", "C", "D", "UNKNOWN", "A"],
+        },
+        { repo_id: "other", course_codes: ["E"] },
+      ],
+      course_descriptors: [
+        { course_code: "A", course_name: "高等数学", repo_id: "shared" },
+        { course_code: "B", course_name: "高等数学", repo_id: "shared" },
+        { course_code: "C", course_name: "大学物理", repo_id: "shared" },
+        { course_code: "D", course_name: "概率论" },
+        { course_code: "E", course_name: "化学", repo_id: "other" },
+      ],
+    },
+    [
+      {
+        repoId: "shared",
+        repoName: "共享仓库",
+        path: "笔记/A.pdf",
+        name: "A.pdf",
+        routeKind: "document",
+        size: 100,
+        courseCodes: ["A"],
+      },
+    ],
+  );
+  const repository = result.details.get("A")!.repositories[0];
+  assert.equal(repository.courseCodeCount, 5);
+  assert.deepEqual(
+    new Set(repository.courseNamePreview),
+    new Set(["高等数学", "大学物理", "概率论"]),
+  );
+  assert.equal(result.details.get("B")!.repositories[0].courseCodeCount, 5);
+  assert.deepEqual(result.details.get("B")!.files, []);
+  assert.equal(result.details.get("E")!.repositories[0].courseCodeCount, 1);
+  assert.deepEqual(result.details.get("E")!.repositories[0].courseNamePreview, [
+    "化学",
+  ]);
 });

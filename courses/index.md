@@ -6,11 +6,10 @@ pageClass: course-catalog-page
 head:
   - - link
     - rel: stylesheet
-      href: /assets/style.css?v=8
+      href: /assets/style.css?v=12
   - - script
     - type: module
-      src: /assets/course-explorer.js?v=8
-
+      src: /assets/course-explorer.js?v=12
 ---
 
 <script setup lang="ts">

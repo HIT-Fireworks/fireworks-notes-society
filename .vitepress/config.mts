@@ -18,8 +18,8 @@ export default ({ command }: ConfigEnv) => {
       "用一门笔记改变一门课，期末考研竞赛科研社团都涉及的超好用HIT笔记网站！",
     head: [
       ["link", { rel: "icon", href: "/logo.png" }],
-      ["link", { rel: "stylesheet", href: "/assets/style.css?v=9" }],
-      ["script", { type: "module", src: "/assets/course-resource.js?v=9" }],
+      ["link", { rel: "stylesheet", href: "/assets/style.css?v=12" }],
+      ["script", { type: "module", src: "/assets/course-resource.js?v=12" }],
     ],
     buildConcurrency: 8,
     vite: {
