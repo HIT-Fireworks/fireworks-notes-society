@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "directories": [
+    "软件",
+    "笔记",
+    "课件",
+    "实验",
+    "教材",
+    "教程",
+    "作业",
+    "试卷",
+    "模板",
+    "项目",
+    "其他"
+  ],
+
+  "placeholder": ".gitkeep",
+  "scope": ["course", "shared", "competition", "template"],
+  "route_index_excludes_placeholder": true
+}

@@ -73,6 +73,14 @@ function hasUnsafePathPart(value: string): boolean {
     .split("/")
     .some((part) => !part || part === "." || part === "..");
 }
+function isRepositoryPlaceholderPath(filePath: string): boolean {
+  return filePath.split("/").at(-1) === ".gitkeep";
+}
+
+export function isRepositoryPlaceholderFile(filePath: string): boolean {
+  return isRepositoryPlaceholderPath(filePath);
+}
+
 
 
 function repositoryName(
@@ -99,7 +107,7 @@ export function repositoryFileEntries(repoId?: string): RepositoryFileEntry[] {
       .map((file) => {
         const id = stringValue(file.repo_id);
         const filePath = stringValue(file.path);
-        if (!id || !filePath || hasUnsafePathPart(filePath)) return undefined;
+        if (!id || !filePath || hasUnsafePathPart(filePath) || isRepositoryPlaceholderPath(filePath)) return undefined;
         return {
           repoId: id,
           repoName: repositoryName(repositoryById.get(id), id),

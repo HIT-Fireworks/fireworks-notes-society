@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+  isRepositoryPlaceholderFile,
   repositoryFileEntries,
   repositoryFileStats,
 } from "../.vitepress/theme/repository-resources.ts";
@@ -10,6 +11,16 @@ import {
   repositoryCdnUrl,
   repositoryRawUrl,
 } from "../.vitepress/theme/repository-resource-links.ts";
+
+test(
+  "预建分类目录的 .gitkeep 不进入资料下载索引",
+  { timeout: 30_000 },
+  () => {
+    assert.equal(isRepositoryPlaceholderFile("笔记/.gitkeep"), true);
+    assert.equal(isRepositoryPlaceholderFile("笔记/复习资料.pdf"), false);
+    assert.ok(repositoryFileEntries().every((entry) => !isRepositoryPlaceholderFile(entry.path)));
+  },
+);
 
 test(
   "资源快照覆盖当前 GitHub 文件路由",
