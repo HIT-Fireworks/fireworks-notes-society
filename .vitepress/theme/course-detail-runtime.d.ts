@@ -3,5 +3,5 @@ declare module "virtual:course-detail" {
 }
 
 declare module "virtual:repository-resources" {
-  export function loadRepositoryResources(pagePath: string): Promise<import("./course-catalog").CourseDetailFile[]>;
+  export function loadRepositoryResources(scope?: string): Promise<import("./course-catalog").CourseDetailFile[]>;
 }

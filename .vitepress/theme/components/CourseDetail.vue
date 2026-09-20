@@ -1,3 +1,4 @@
+
 <script lang="ts">
 import type { CourseDetailFile } from "../course-catalog";
 
@@ -10,18 +11,12 @@ export function serializeResourceFiles(files: CourseDetailFile[]): string {
 </script>
 
 <script setup lang="ts">
-import type {
-  CourseDetailData,
-  CourseDetailFile,
-  CourseDetailPlan,
-} from "../course-catalog";
+import type { CourseDetailData, CourseDetailPlan } from "../course-catalog";
 import RepositoryResources from "./RepositoryResources.vue";
 
-const { course, plans } = defineProps<{
-  course: CourseDetailData;
-  plans: CourseDetailPlan[];
-}>();
-const resourceFiles: CourseDetailFile[] = course.files;
+const { course, plans } = defineProps<{ course: CourseDetailData; plans: CourseDetailPlan[] }>();
+const resourceFiles = course.files;
+const repository = course.repositories[0];
 
 const readableTerm = (term: string) =>
   term
@@ -165,24 +160,22 @@ const sectionLabel = (item: DetailArrangement) => {
           </p>
         </div>
         <p class="material-ownership-note" role="note">
-          请注意分辨资料归属：同一仓库可能收录不同课程的资料，请结合文件名、课程代码和内容确认。
+          资料按仓库统一展示；关联同一仓库的课程共享同一份资料树。
         </p>
       </aside>
       <div
-        v-if="resourceFiles.length"
+        v-if="repository"
         data-resource-root
         :data-files="serializeResourceFiles(resourceFiles)"
+        :data-repo-id="repository.repoId"
+        :data-built-commit="repository.commit"
+        :data-built-tree-sha="repository.treeSha"
       >
-        <RepositoryResources :files="resourceFiles" />
+        <RepositoryResources :files="resourceFiles" :repo-id="repository.repoId" :built-commit="repository.commit" :built-tree-sha="repository.treeSha" />
       </div>
       <div v-else class="materials-empty">
-        <p>这门课暂时没有可浏览的资料。</p>
-        <a
-          href="https://github.com/HIT-Fireworks/fireworks-notes-society/issues/new"
-          target="_blank"
-          rel="noopener noreferrer"
-          >提交资料线索</a
-        >
+        <p>这门课暂未关联资料仓库。</p>
+        <a href="https://github.com/HIT-Fireworks/fireworks-notes-society/issues/new" target="_blank" rel="noopener noreferrer">提交资料线索</a>
       </div>
     </section>
 

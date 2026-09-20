@@ -71,15 +71,15 @@ git push origin feature/your-feature-name
 - 每门课程单独创建文件夹
 - 每个课程文件夹需要有 `index.md` 作为课程主页
 - 中间分组页和实验报告、竞赛、模板等非普通资料分类也可以有 `index.md`
-- 手写页面负责导航，资料由 Registry 的文件路由索引提供，不依赖旧网盘。
+- 手写页面只负责导航，资料目录由关联仓库的 Git Tree 自动生成，不维护 Registry 文件列表。
 
 ### 课程页与资料仓库维护
 
 1. 课程身份使用完整课程代码；课程页面为 `/courses/<课程代码>`。
-2. 资料直接归属仓库，需要独立维护的范围通过拆仓表达，不建立仓内资源组。
+2. 每个课程代码只关联一个资料仓库；文件不与课程建立单独关联。
 3. 资料放入预设中文分类（教材、笔记、课件、试卷、作业、实验、软件、教程、模板、项目、其他），不得自行新增根级分类；软件包与多文件文档在分类内保留必要结构。
-4. 保留的手写资料页使用 `<RepositoryResourcePage path="..." />`，`path` 仅用于匹配文件的历史来源范围，不访问旧附件服务；`/lessons` 展示完整资料索引。
-5. 更新资料时同步 Registry 中的 `repo_id`、`path`、课程或专题路由及内容摘要；重名文件不得覆盖。运行 `bun run test:courses` 和 `bun run docs:build`，再检查实际页面的下载响应。
+4. 保留的手写资料页通过 `config/resource-page-repositories.v1.json` 关联资料仓库范围；该配置不包含文件清单。
+5. 更新资料只需提交对应资料仓库。网站通过 Git Tree 构建缓存和热索引自动发现新增、删除和重命名文件；运行 `bun run test:courses` 和 `bun run docs:build` 验收站点改动。
 
 ### Markdown 格式
 

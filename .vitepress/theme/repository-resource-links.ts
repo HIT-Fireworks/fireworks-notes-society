@@ -1,6 +1,7 @@
 export interface RepositoryResourceLink {
   repoId: string;
   path: string;
+  commit?: string;
 }
 
 export type RepositoryCdn = "edgeone" | "esa";
@@ -27,7 +28,8 @@ function encodePath(value: string): string {
 }
 
 function repositoryPath(file: RepositoryResourceLink): string {
-  return `/gh/${encodeURIComponent(file.repoId)}/${encodePath(file.path)}`;
+  const query = file.commit ? `?ref=${encodeURIComponent(file.commit)}` : "";
+  return `/gh/${encodeURIComponent(file.repoId)}/${encodePath(file.path)}${query}`;
 }
 
 export function repositoryCdnUrl(
@@ -50,7 +52,8 @@ export function classifyRepositoryCdnCache(
 }
 
 export function repositoryRawUrl(file: RepositoryResourceLink): string {
-  const rawUrl = `https://raw.githubusercontent.com/${repositoryOwner}/${encodeURIComponent(file.repoId)}/main/${encodePath(file.path)}`;
+  const revision = file.commit || "main";
+  const rawUrl = `https://raw.githubusercontent.com/${repositoryOwner}/${encodeURIComponent(file.repoId)}/${encodeURIComponent(revision)}/${encodePath(file.path)}`;
   return `${directProxyNode}/${rawUrl}`;
 }
 

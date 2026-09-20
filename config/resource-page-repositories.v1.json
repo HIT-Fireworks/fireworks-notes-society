@@ -1,0 +1,528 @@
+{
+  "schemaVersion": 1,
+  "description": "手写导航页到资料仓库 ID 的范围映射；不保存文件列表，资料文件由对应仓库 Git Tree 提供。",
+  "pages": {
+    "询问中/index.md": {
+      "path": "/询问中",
+      "repoIds": [
+        "SHARED-43F54FDD7DB3",
+        "SHARED-E8754BCFC2C9"
+      ]
+    },
+    "薪火笔记社-竞赛/index.md": {
+      "path": "/薪火笔记社-竞赛",
+      "repoIds": [
+        "22AS22001",
+        "22AS31701",
+        "22EE21002",
+        "22EE22004F",
+        "22EI22202",
+        "22EM21003",
+        "22ME22009",
+        "CAT-competitions",
+        "COURSES-RA-913BB6E87D37",
+        "COURSES-RA-C1FBEAA0E488",
+        "COURSES-RA-E257100417A3",
+        "SHARED-1A2AB18FED24",
+        "SHARED-694AD41904DD",
+        "SHARED-69B9E328B9C9",
+        "SHARED-C5CFD6C2F24D"
+      ]
+    },
+    "薪火笔记社-PPT及报告模板/index.md": {
+      "path": "/薪火笔记社-PPT及报告模板",
+      "repoIds": [
+        "CAT-document-templates"
+      ]
+    },
+    "经管学院/index.md": {
+      "path": "/经管学院",
+      "repoIds": [
+        "COURSES-RA-72A877B211F2",
+        "SHARED-CC2772FB25E4"
+      ]
+    },
+    "电信学院/index.md": {
+      "path": "/电信学院",
+      "repoIds": [
+        "22EE22004F"
+      ]
+    },
+    "电信学院/信号与系统/index.md": {
+      "path": "/电信学院/信号与系统",
+      "repoIds": [
+        "22EE22004F"
+      ]
+    },
+    "生命科学和医学学部/index.md": {
+      "path": "/生命科学和医学学部",
+      "repoIds": [
+        "SHARED-4D1475BE5DAA"
+      ]
+    },
+    "环境学院/index.md": {
+      "path": "/环境学院",
+      "repoIds": [
+        "COURSES-RA-0C497D26F88A"
+      ]
+    },
+    "物理学院/index.md": {
+      "path": "/物理学院",
+      "repoIds": [
+        "22AS22001",
+        "22AS22701",
+        "22AS31701",
+        "22PH15020",
+        "22PH22002F",
+        "COURSE-C5E7048C65CF",
+        "COURSE-CDA8DF9A5E66",
+        "COURSE-E6707C42DCEE",
+        "COURSE-EB99A4CE876A",
+        "COURSES-AT-3BE74E9CE903",
+        "COURSES-AT-DF3D4B5896B0",
+        "COURSES-RA-32060093741D",
+        "COURSES-RA-3EA87D20A2E2"
+      ]
+    },
+    "物理学院/细分专业课/index.md": {
+      "path": "/物理学院/细分专业课",
+      "repoIds": [
+        "22AS31701",
+        "COURSE-C5E7048C65CF",
+        "COURSE-E6707C42DCEE"
+      ]
+    },
+    "物理学院/细分专业课/光学/index.md": {
+      "path": "/物理学院/细分专业课/光学",
+      "repoIds": [
+        "22AS31701",
+        "COURSE-C5E7048C65CF",
+        "COURSE-E6707C42DCEE"
+      ]
+    },
+    "物理学院/专业基础课/index.md": {
+      "path": "/物理学院/专业基础课",
+      "repoIds": [
+        "22AS22001",
+        "22AS22701",
+        "22PH15020",
+        "22PH22002F",
+        "COURSE-CDA8DF9A5E66",
+        "COURSE-EB99A4CE876A",
+        "COURSES-AT-3BE74E9CE903",
+        "COURSES-AT-DF3D4B5896B0",
+        "COURSES-RA-32060093741D",
+        "COURSES-RA-3EA87D20A2E2"
+      ]
+    },
+    "物理学院/专业基础课/量子力学/index.md": {
+      "path": "/物理学院/专业基础课/量子力学",
+      "repoIds": [
+        "COURSES-AT-DF3D4B5896B0"
+      ]
+    },
+    "物理学院/专业基础课/电磁学/index.md": {
+      "path": "/物理学院/专业基础课/电磁学",
+      "repoIds": [
+        "COURSES-RA-3EA87D20A2E2"
+      ]
+    },
+    "物理学院/专业基础课/电动力学/index.md": {
+      "path": "/物理学院/专业基础课/电动力学",
+      "repoIds": [
+        "22PH22002F"
+      ]
+    },
+    "物理学院/专业基础课/理论力学/index.md": {
+      "path": "/物理学院/专业基础课/理论力学",
+      "repoIds": [
+        "22AS22001"
+      ]
+    },
+    "物理学院/专业基础课/热学/index.md": {
+      "path": "/物理学院/专业基础课/热学",
+      "repoIds": [
+        "COURSE-CDA8DF9A5E66"
+      ]
+    },
+    "物理学院/专业基础课/热力学与统计物理/index.md": {
+      "path": "/物理学院/专业基础课/热力学与统计物理",
+      "repoIds": [
+        "COURSE-EB99A4CE876A"
+      ]
+    },
+    "物理学院/专业基础课/数学物理方法/index.md": {
+      "path": "/物理学院/专业基础课/数学物理方法",
+      "repoIds": [
+        "22PH15020"
+      ]
+    },
+    "物理学院/专业基础课/原子物理/index.md": {
+      "path": "/物理学院/专业基础课/原子物理",
+      "repoIds": [
+        "22AS22701"
+      ]
+    },
+    "物理学院/专业基础课/力学/index.md": {
+      "path": "/物理学院/专业基础课/力学",
+      "repoIds": [
+        "COURSES-RA-32060093741D"
+      ]
+    },
+    "物理学院/专业基础课/光学/index.md": {
+      "path": "/物理学院/专业基础课/光学",
+      "repoIds": [
+        "COURSES-AT-3BE74E9CE903"
+      ]
+    },
+    "机电工程学院/index.md": {
+      "path": "/机电工程学院",
+      "repoIds": [
+        "22EE22005",
+        "SHARED-F0AA86ADEDBE"
+      ]
+    },
+    "机电工程学院/电工技术/index.md": {
+      "path": "/机电工程学院/电工技术",
+      "repoIds": [
+        "22EE22005"
+      ]
+    },
+    "机电工程学院/数字电路/index.md": {
+      "path": "/机电工程学院/数字电路",
+      "repoIds": [
+        "SHARED-F0AA86ADEDBE"
+      ]
+    },
+    "未来技术学院/index.md": {
+      "path": "/未来技术学院",
+      "repoIds": [
+        "22AR22025",
+        "22AS31260",
+        "22CS21004",
+        "22CS22013",
+        "22EE22004F",
+        "22MA15035",
+        "COURSE-1CA408EBA041",
+        "COURSE-533537D93C73",
+        "COURSE-A0024D48C754",
+        "COURSE-D4CB97B55C9D",
+        "COURSE-DCED1695C221",
+        "COURSE-DE5DCD90ABDF",
+        "COURSES-RA-4A200AFA4ECD",
+        "COURSES-RA-ED4F15651BB9",
+        "COURSES-RA-F37F3F23680E",
+        "SHARED-7D4F3EBAEF61"
+      ]
+    },
+    "数学学院/index.md": {
+      "path": "/数学学院",
+      "repoIds": [
+        "22MA15015",
+        "COURSE-382D0A8527B2",
+        "COURSE-CDA0323FD8E7",
+        "COURSES-AT-2AD60A98A4DF",
+        "COURSES-AT-562403FC53E3",
+        "COURSES-AT-8F25BF866A2B",
+        "COURSES-RA-31028A0405B5",
+        "COURSES-RA-43B4396AA956",
+        "COURSES-RA-7B09876483EF",
+        "COURSES-RA-AF3662B1B126",
+        "COURSES-RA-EEC31D90F83F"
+      ]
+    },
+    "数学学院/细分专业课/index.md": {
+      "path": "/数学学院/细分专业课",
+      "repoIds": [
+        "COURSE-CDA0323FD8E7",
+        "COURSES-AT-2AD60A98A4DF"
+      ]
+    },
+    "数学学院/细分专业课/信息与计算科学/index.md": {
+      "path": "/数学学院/细分专业课/信息与计算科学",
+      "repoIds": [
+        "COURSE-CDA0323FD8E7",
+        "COURSES-AT-2AD60A98A4DF"
+      ]
+    },
+    "数学学院/细分专业课/信息与计算科学/信息论基础/index.md": {
+      "path": "/数学学院/细分专业课/信息与计算科学/信息论基础",
+      "repoIds": [
+        "COURSE-CDA0323FD8E7"
+      ]
+    },
+    "数学学院/专业基础课/index.md": {
+      "path": "/数学学院/专业基础课",
+      "repoIds": [
+        "22MA15015",
+        "COURSE-382D0A8527B2",
+        "COURSES-AT-562403FC53E3",
+        "COURSES-AT-8F25BF866A2B",
+        "COURSES-RA-31028A0405B5",
+        "COURSES-RA-43B4396AA956",
+        "COURSES-RA-7B09876483EF",
+        "COURSES-RA-AF3662B1B126",
+        "COURSES-RA-EEC31D90F83F"
+      ]
+    },
+    "数学学院/专业基础课/高等代数/index.md": {
+      "path": "/数学学院/专业基础课/高等代数",
+      "repoIds": [
+        "COURSES-RA-43B4396AA956"
+      ]
+    },
+    "数学学院/专业基础课/计算概论/index.md": {
+      "path": "/数学学院/专业基础课/计算概论",
+      "repoIds": [
+        "COURSES-RA-EEC31D90F83F"
+      ]
+    },
+    "数学学院/专业基础课/泛函分析/index.md": {
+      "path": "/数学学院/专业基础课/泛函分析",
+      "repoIds": [
+        "COURSES-AT-8F25BF866A2B"
+      ]
+    },
+    "数学学院/专业基础课/数学分析/index.md": {
+      "path": "/数学学院/专业基础课/数学分析",
+      "repoIds": [
+        "22MA15015"
+      ]
+    },
+    "数学学院/专业基础课/微分方程数值解/index.md": {
+      "path": "/数学学院/专业基础课/微分方程数值解",
+      "repoIds": [
+        "COURSES-RA-AF3662B1B126"
+      ]
+    },
+    "数学学院/专业基础课/常微分方程/index.md": {
+      "path": "/数学学院/专业基础课/常微分方程",
+      "repoIds": [
+        "COURSE-382D0A8527B2"
+      ]
+    },
+    "数学学院/专业基础课/实变函数/index.md": {
+      "path": "/数学学院/专业基础课/实变函数",
+      "repoIds": [
+        "COURSES-RA-31028A0405B5"
+      ]
+    },
+    "数学学院/专业基础课/复变函数/index.md": {
+      "path": "/数学学院/专业基础课/复变函数",
+      "repoIds": [
+        "COURSES-AT-562403FC53E3"
+      ]
+    },
+    "数学学院/专业基础课/初等数论/index.md": {
+      "path": "/数学学院/专业基础课/初等数论",
+      "repoIds": [
+        "COURSES-RA-7B09876483EF"
+      ]
+    },
+    "实验报告/index.md": {
+      "path": "/实验报告",
+      "repoIds": [
+        "22EE22005",
+        "22PH15014",
+        "COURSES-93EC48F78E4A",
+        "COURSES-RA-9A906994DD1F"
+      ]
+    },
+    "土木工程学院/index.md": {
+      "path": "/土木工程学院",
+      "repoIds": [
+        "COURSES-RA-5749DB278DB0"
+      ]
+    },
+    "化工与化学学院/index.md": {
+      "path": "/化工与化学学院",
+      "repoIds": [
+        "22CC22008"
+      ]
+    },
+    "仪器学院/index.md": {
+      "path": "/仪器学院",
+      "repoIds": [
+        "COURSE-D2C8BB5F57FD",
+        "COURSE-D86D957E5863",
+        "COURSES-RA-F7FF65FD449B"
+      ]
+    },
+    "仪器学院/工程光学/index.md": {
+      "path": "/仪器学院/工程光学",
+      "repoIds": [
+        "COURSES-RA-F7FF65FD449B"
+      ]
+    },
+    "人文社科学部/index.md": {
+      "path": "/人文社科学部",
+      "repoIds": [
+        "22EM21901F",
+        "COURSE-495F1E94EEF1",
+        "COURSE-78252B11A0F9",
+        "COURSE-AE0B895E7368",
+        "COURSE-D4DA59C81E10",
+        "COURSE-E75673699A7D"
+      ]
+    },
+    "人文社科学部/社会学理论/index.md": {
+      "path": "/人文社科学部/社会学理论",
+      "repoIds": [
+        "COURSE-AE0B895E7368"
+      ]
+    },
+    "人文社科学部/社会学概论/index.md": {
+      "path": "/人文社科学部/社会学概论",
+      "repoIds": [
+        "COURSE-E75673699A7D"
+      ]
+    },
+    "人文社科学部/法理学/index.md": {
+      "path": "/人文社科学部/法理学",
+      "repoIds": [
+        "COURSE-495F1E94EEF1"
+      ]
+    },
+    "人文社科学部/民法/index.md": {
+      "path": "/人文社科学部/民法",
+      "repoIds": [
+        "COURSE-78252B11A0F9"
+      ]
+    },
+    "人文社科学部/宪法学/index.md": {
+      "path": "/人文社科学部/宪法学",
+      "repoIds": [
+        "COURSE-D4DA59C81E10"
+      ]
+    },
+    "人文社科学部/宏观经济学/index.md": {
+      "path": "/人文社科学部/宏观经济学",
+      "repoIds": [
+        "22EM21901F"
+      ]
+    },
+    "交通科学与工程学院/index.md": {
+      "path": "/交通科学与工程学院",
+      "repoIds": [
+        "COURSES-AT-E6B456E9268A",
+        "COURSES-RA-4275D1A36C64",
+        "COURSES-RA-E95F7F7EE15B"
+      ]
+    },
+    "交通科学与工程学院/智能交通导论/index.md": {
+      "path": "/交通科学与工程学院/智能交通导论",
+      "repoIds": [
+        "COURSES-AT-E6B456E9268A"
+      ]
+    },
+    "交通科学与工程学院/交通管理/index.md": {
+      "path": "/交通科学与工程学院/交通管理",
+      "repoIds": [
+        "COURSES-RA-4275D1A36C64"
+      ]
+    },
+    "【公共课】/index.md": {
+      "path": "/【公共课】",
+      "repoIds": [
+        "22AS22001",
+        "22CC15003",
+        "22CS14004",
+        "22EE21002",
+        "22MA15001",
+        "22MA15017",
+        "22MA15024",
+        "22ME21004",
+        "22MX11001",
+        "22MX11002",
+        "22MX11003",
+        "22MX11004",
+        "22MX11005",
+        "22PH15001"
+      ]
+    },
+    "【公共课】/【工科公共课】理论力学/index.md": {
+      "path": "/【公共课】/【工科公共课】理论力学",
+      "repoIds": [
+        "22AS22001"
+      ]
+    },
+    "【公共课】/【工科公共课】工程制图/index.md": {
+      "path": "/【公共课】/【工科公共课】工程制图",
+      "repoIds": [
+        "22ME21004"
+      ]
+    },
+    "【公共课】/【公共课】马克思主义原理/index.md": {
+      "path": "/【公共课】/【公共课】马克思主义原理",
+      "repoIds": [
+        "22MX11005"
+      ]
+    },
+    "【公共课】/【公共课】近现代史纲要/index.md": {
+      "path": "/【公共课】/【公共课】近现代史纲要",
+      "repoIds": [
+        "22MX11003"
+      ]
+    },
+    "【公共课】/【公共课】计算思维与人工智能/index.md": {
+      "path": "/【公共课】/【公共课】计算思维与人工智能",
+      "repoIds": [
+        "22CS14004"
+      ]
+    },
+    "【公共课】/【公共课】线性代数与空间解析几何/index.md": {
+      "path": "/【公共课】/【公共课】线性代数与空间解析几何",
+      "repoIds": [
+        "22MA15017"
+      ]
+    },
+    "【公共课】/【公共课】电路类课程/index.md": {
+      "path": "/【公共课】/【公共课】电路类课程",
+      "repoIds": [
+        "22EE21002"
+      ]
+    },
+    "【公共课】/【公共课】毛概/index.md": {
+      "path": "/【公共课】/【公共课】毛概",
+      "repoIds": [
+        "22MX11004"
+      ]
+    },
+    "【公共课】/【公共课】概率论与数理统计/index.md": {
+      "path": "/【公共课】/【公共课】概率论与数理统计",
+      "repoIds": [
+        "22MA15024"
+      ]
+    },
+    "【公共课】/【公共课】思想道德与法治/index.md": {
+      "path": "/【公共课】/【公共课】思想道德与法治",
+      "repoIds": [
+        "22MX11002"
+      ]
+    },
+    "【公共课】/【公共课】工科数学分析（微积分）/index.md": {
+      "path": "/【公共课】/【公共课】工科数学分析（微积分）",
+      "repoIds": [
+        "22MA15001"
+      ]
+    },
+    "【公共课】/【公共课】大学物理/index.md": {
+      "path": "/【公共课】/【公共课】大学物理",
+      "repoIds": [
+        "22PH15001"
+      ]
+    },
+    "【公共课】/【公共课】大学化学/index.md": {
+      "path": "/【公共课】/【公共课】大学化学",
+      "repoIds": [
+        "22CC15003"
+      ]
+    },
+    "【公共课】/【公共课】习概/index.md": {
+      "path": "/【公共课】/【公共课】习概",
+      "repoIds": [
+        "22MX11001"
+      ]
+    }
+  }
+}

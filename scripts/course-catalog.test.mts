@@ -41,7 +41,6 @@ const coursesByCode = new Map(
 
 const manifest = readManifestJson<any>(courseCatalogSourceFiles()[0]);
 
-const routes = readManifestJson<any>(courseCatalogSourceFiles()[1]);
 
 const recordsByCode = new Map<string, any[]>();
 for (const record of manifest.curriculum_records) {
@@ -52,15 +51,6 @@ for (const record of manifest.curriculum_records) {
 const descriptorByCode = new Map<string, any>(
   manifest.course_descriptors.map((item) => [item.course_code, item]),
 );
-const fileIdsByCode = new Map<string, string[]>();
-for (const file of routes.files) {
-  for (const code of file.course_codes ?? []) {
-    const ids = fileIdsByCode.get(code) ?? [];
-    ids.push(`${file.repo_id}\0${file.path}`);
-    fileIdsByCode.set(code, ids);
-  }
-}
-for (const ids of fileIdsByCode.values()) ids.sort();
 
 test("课程名称与检索别名只来自同一课程代码，不继承合仓别名", () => {
   for (const course of catalog.courses) {
@@ -97,39 +87,21 @@ test("课程名称与检索别名只来自同一课程代码，不继承合仓�
   }
 });
 
-test("同仓课程仍使用各自课程代码的资料、学分和考核信息", () => {
-  const sortedValues = (records, field: string) =>
-    [
-      ...new Set(
-        records
-          .map((record) => String(record[field] ?? "").trim())
-          .filter(Boolean),
-      ),
-    ].sort();
+test("同仓课程共享完整仓库资料树并保留各自课程元数据", () => {
+  const sortedValues = (records, field: string) => [...new Set(records.map((record) => String(record[field] ?? "").trim()).filter(Boolean))].sort();
+  const byRepository = new Map<string, string>();
   for (const course of catalog.courses) {
     const detail = details.get(course.code)!;
     const records = recordsByCode.get(course.code) ?? [];
-    assert.deepEqual(
-      [...detail.credits].sort(),
-      sortedValues(records, "credit"),
-      course.code,
-    );
-    assert.deepEqual(
-      [...detail.totalHours].sort(),
-      sortedValues(records, "total_hours"),
-      course.code,
-    );
-    assert.deepEqual(
-      [...detail.assessmentMethods].sort(),
-      sortedValues(records, "assessment_method"),
-      course.code,
-    );
-    const expected = fileIdsByCode.get(course.code) ?? [];
-    assert.deepEqual(
-      detail.files.map((file) => `${file.repoId}\0${file.path}`).sort(),
-      expected,
-      course.code,
-    );
+    assert.deepEqual([...detail.credits].sort(), sortedValues(records, "credit"), course.code);
+    assert.deepEqual([...detail.totalHours].sort(), sortedValues(records, "total_hours"), course.code);
+    assert.deepEqual([...detail.assessmentMethods].sort(), sortedValues(records, "assessment_method"), course.code);
+    if (!course.repoId || !detail.repositories.length) continue;
+    assert.equal(detail.repositories.length, 1, course.code);
+    const signature = JSON.stringify(detail.files.map((file) => [file.commit, file.path, file.size]));
+    const previous = byRepository.get(course.repoId);
+    if (previous) assert.equal(signature, previous, course.repoId);
+    else byRepository.set(course.repoId, signature);
   }
 });
 test("课程目录完整消费正式输入且不依赖固定数据规模", () => {
@@ -139,13 +111,11 @@ test("课程目录完整消费正式输入且不依赖固定数据规模", () =>
   const codedRecords = manifest.curriculum_records.filter(
     (record) => record.course_code && validPlanIds.has(record.source_plan),
   );
-  const expectedCodes = new Set(
-    [
-      ...manifest.course_descriptors.map((item) => item.course_code),
-      ...codedRecords.map((item) => item.course_code),
-      ...routes.files.flatMap((file) => file.course_codes ?? []),
-    ].filter(Boolean),
-  );
+  const expectedCodes = new Set([
+    ...manifest.course_descriptors.map((item) => item.course_code),
+    ...codedRecords.map((item) => item.course_code),
+    ...manifest.repositories.flatMap((item) => item.course_codes ?? []),
+  ].filter(Boolean));
   assert.equal(catalog.plans.length, validPlanIds.size);
   assert.equal(catalog.occurrences.length, codedRecords.length);
   assert.deepEqual(
@@ -171,47 +141,31 @@ test("每条课程记录都有唯一稳定身份并引用已生成的方案和�
   assert.equal(details.size, catalog.courses.length);
 });
 
-test("课程资料按文件路由反向聚合且统计一致", () => {
+test("课程资料只来自唯一资料仓库的完整 Git Tree", () => {
   for (const course of catalog.courses) {
-    const detail = details.get(course.code);
-    assert.ok(detail, course.code);
-    const files = detail.repositories.reduce(
-      (total, repository) => total + repository.fileCount,
-      0,
-    );
+    const detail = details.get(course.code)!;
+    assert.ok(detail.repositories.length <= 1, course.code);
+    const files = detail.repositories[0]?.fileCount ?? 0;
     assert.equal(files, course.fileCount, course.code);
+    assert.equal(detail.files.length, files, course.code);
     assert.equal(course.hasMaterial, files > 0, course.code);
+    assert.ok(detail.files.every((file) => file.repoId === course.repoId && /^[0-9a-f]{40}$/.test(file.commit)), course.code);
+    assert.ok(detail.files.every((file) => !Object.hasOwn(file, "courseCodes")), course.code);
   }
 });
-test("课程详情只序列化渲染所需的最小文件字段", () => {
-  const allowedKeys = ["name", "path", "repoId", "routeKind", "size"];
-  for (const course of catalog.courses.filter((item) => item.hasMaterial)) {
-    const detail = details.get(course.code);
-    assert.ok(detail, course.code);
-    assert.equal(detail.files.length, course.fileCount, course.code);
-    assert.ok(
-      detail.files.every(
-        (file) =>
-          JSON.stringify(Object.keys(file).sort()) ===
-          JSON.stringify(allowedKeys),
-      ),
-      course.code,
-    );
-  }
+test("课程详情保留紧凑计划引用", () => {
   const detailCatalog = getCourseDetailCatalog();
   for (const plan of detailCatalog.plans) {
     assert.deepEqual(Object.keys(plan).sort(), [
-      "departmentCode",
-      "entryCohort",
-      "id",
-      "majorCode",
-      "majorFullName",
-      "majorName",
-      "planVersion",
-      "programType",
-      "school",
-      "sourceKind",
+      "departmentCode", "entryCohort", "id", "majorCode", "majorFullName", "majorName", "planVersion", "programType", "school", "sourceKind", "terms",
     ]);
+  }
+  for (const detail of details.values()) {
+    assert.ok(!("academicStructure" in detail), detail.code);
+    for (const item of detail.majors) {
+      assert.ok(detailCatalog.plans[item.planIndex], item.occurrenceId);
+      assert.ok(Object.keys(item).every((key) => ["directionKey", "moduleId", "occurrenceId", "planIndex", "sourceSection", "term"].includes(key)), item.occurrenceId);
+    }
   }
   for (const detail of details.values()) {
     assert.ok(!("academicStructure" in detail), detail.code);
@@ -239,13 +193,7 @@ test("课程 slug 唯一且来源文件固定", () => {
     catalog.courses.map((course) => courseSlug(course.code)),
   );
   assert.equal(slugs.size, catalog.courses.length);
-  assert.deepEqual(
-    courseCatalogSourceFiles().map((file) => basename(file)),
-    [
-      "repository-manifest.no-collection.v4.json",
-      "repository-file-routes.v4.json",
-    ],
-  );
+  assert.deepEqual(courseCatalogSourceFiles().map((file) => basename(file)).filter((file) => file.includes("repository-manifest")), ["repository-manifest.no-collection.v4.json"]);
 });
 
 test("学期排序遵循学年和秋春夏顺序", () => {
@@ -322,20 +270,11 @@ test("培养方案与执行计划身份、同名专业和多条开课记录保�
       { course_code: "TEST1001", course_name: "测试课程" },
       { course_code: "TEST1002", course_name: "旧方案课程" },
     ],
-    repositories: [{ repo_id: "shared-repo", display_name: "共享仓库" }],
+    repositories: [
+      { repo_id: "shared-repo", display_name: "共享仓库", course_codes: ["TEST1001", "TEST1002"] },
+    ],
   };
-  const files = [
-    {
-      repoId: "shared-repo",
-      repoName: "共享仓库",
-      path: "only-test1001.pdf",
-      name: "only-test1001.pdf",
-      routeKind: "document",
-      courseCodes: ["TEST1001"],
-      size: 1,
-    },
-  ];
-  const result = buildCourseCatalog(fixture, files);
+  const result = buildCourseCatalog(fixture);
   const curriculum = result.index.plans.find(
     (plan) => plan.id === "curriculum-a",
   )!;
@@ -411,9 +350,8 @@ test("培养方案与执行计划身份、同名专业和多条开课记录保�
       },
     ],
   );
-  assert.equal(result.details.get("TEST1001")?.majors.length, 2);
-  assert.equal(result.details.get("TEST1001")?.files.length, 1);
-  assert.equal(result.details.get("TEST1002")?.files.length, 0);
+  assert.equal(result.details.get("TEST1001")?.repoId, "shared-repo");
+  assert.equal(result.details.get("TEST1002")?.repoId, "shared-repo");
 });
 
 test("缺少上游身份证据的旧课程记录会被明确拒绝", () => {
@@ -436,7 +374,7 @@ test("缺少上游身份证据的旧课程记录会被明确拒绝", () => {
         course_descriptors: [],
         repositories: [],
       }),
-    /缺少 record_id 和 source_ordinal/,
+    /缺少稳定身份/,
   );
   const unknownSection = buildCourseCatalog({
     curriculum_plans: [
@@ -463,42 +401,14 @@ test("缺少上游身份证据的旧课程记录会被明确拒绝", () => {
   );
 });
 
-test("冻结旧输入的全站详情投影仍严格小于 5MiB", () => {
-  const fixture = JSON.parse(
-    readFileSync(
-      new URL("./fixtures/course-catalog-baseline.json", import.meta.url),
-      "utf8",
-    ),
-  );
-  const expand = (table) =>
-    table.rows.map((row) =>
-      Object.fromEntries(table.columns.map((key, index) => [key, row[index]])),
-    );
-  const input = Object.fromEntries(
-    Object.entries(fixture.tables).map(([key, table]) => [key, expand(table)]),
-  );
-  const files = expand(fixture.files).map((file) => ({
-    repoId: file.repo_id,
-    repoName: file.repo_id,
-    path: file.path,
-    name: file.path.split("/").pop(),
-    routeKind: file.route_kind || "其他资料",
-    courseCodes: file.course_codes ?? [],
-    size: file.size ?? 0,
-  }));
-  const result = buildCourseCatalog(
-    input as Parameters<typeof buildCourseCatalog>[0],
-    files,
-  );
+test("冻结旧输入的课程身份投影仍严格小于 5MiB", () => {
+  const fixture = JSON.parse(readFileSync(new URL("./fixtures/course-catalog-baseline.json", import.meta.url), "utf8"));
+  const expand = (table) => table.rows.map((row) => Object.fromEntries(table.columns.map((key, index) => [key, row[index]])));
+  const input = Object.fromEntries(Object.entries(fixture.tables).map(([key, table]) => [key, expand(table)]));
+  const result = buildCourseCatalog(input as Parameters<typeof buildCourseCatalog>[0]);
   assert.equal(result.index.plans.length, 211);
   assert.equal(result.index.courses.length, 2618);
-  assert.equal(files.length, 3857);
-  const bytes = Buffer.byteLength(
-    JSON.stringify({
-      plans: result.detailPlans,
-      courses: Object.fromEntries(result.details),
-    }),
-  );
+  const bytes = Buffer.byteLength(JSON.stringify({ plans: result.detailPlans, courses: Object.fromEntries(result.details) }));
   assert.ok(bytes < 5 * 1024 * 1024, `${bytes} bytes`);
 });
 
@@ -652,37 +562,21 @@ test("计划包完整保留各计划记录且目录可定位每份计划", () =>
   );
 });
 
-test("无官方名称的完整代码仍可检索且不继承同仓资料", () => {
-  const result = buildCourseCatalog(
-    {
-      curriculum_plans: [{ plan_id: "empty" }],
-      curriculum_records: [],
-      repositories: [{ repo_id: "shared" }],
-      course_descriptors: [
-        { course_code: "NO-NAME", repo_id: "shared" },
-        { course_code: "NAMED", course_name: "官方名称", repo_id: "shared" },
-      ],
-    },
-    [
-      {
-        repoId: "shared",
-        repoName: "shared",
-        path: "named.pdf",
-        name: "named.pdf",
-        routeKind: "document",
-        size: 1,
-        courseCodes: ["NAMED"],
-      },
+test("无官方名称的完整代码仍可检索且绑定唯一仓库", () => {
+  const result = buildCourseCatalog({
+    curriculum_plans: [{ plan_id: "empty" }],
+    curriculum_records: [],
+    repositories: [{ repo_id: "shared", course_codes: ["NO-NAME", "NAMED"] }],
+    course_descriptors: [
+      { course_code: "NO-NAME", repo_id: "shared" },
+      { course_code: "NAMED", course_name: "官方名称", repo_id: "shared" },
     ],
-  );
+  });
   assert.equal(result.details.get("NO-NAME")!.name, "NO-NAME");
+  assert.equal(result.details.get("NO-NAME")!.repoId, "shared");
   assert.deepEqual(result.details.get("NO-NAME")!.aliases, []);
-  assert.deepEqual(result.details.get("NO-NAME")!.files, []);
   const delivery = buildCourseCatalogDelivery(result.index);
-  assert.deepEqual(
-    delivery.files.get(delivery.directory.planFiles.empty)!.plans.empty,
-    { planId: "empty", occurrences: [] },
-  );
+  assert.deepEqual(delivery.files.get(delivery.directory.planFiles.empty)!.plans.empty, { planId: "empty", occurrences: [] });
 });
 
 test("方案客户端拒绝错误身份与错误HTTP响应并传递取消信号", async () => {
@@ -783,24 +677,13 @@ test("真实根与新增分片输入受watch覆盖且缓存随输入变化失效
       return shard.replaceAll("\\", "/");
     };
     for (const input of inputs) {
-      const first = save(input, { value: "first" });
+      save(input, { value: "first" });
       const cached = readManifestJson(input);
       assert.equal(readManifestJson(input), cached);
-      const second = save(input, { value: "second version" });
-      const matched = new Set(
-        patterns
-          .flatMap((pattern) => [
-            ...new Bun.Glob(
-              relative(root, pattern).replaceAll("\\", "/"),
-            ).scanSync({ cwd: root, absolute: true, dot: true }),
-          ])
-          .map((file) => file.replaceAll("\\", "/")),
-      );
-      assert.ok(matched.has(input.replaceAll("\\", "/")));
-      assert.ok(matched.has(first));
-      assert.ok(matched.has(second));
+      save(input, { value: "second version" });
       assert.notEqual(readManifestJson(input), cached);
       assert.deepEqual(readManifestJson(input), { value: "second version" });
+      assert.ok(patterns.includes(input.replaceAll("\\", "/")));
     }
   } finally {
     rmSync(root, { recursive: true, force: true });
@@ -829,50 +712,4 @@ test("仓库预览优先露出不同课程，再展示同课程的近似名称",
     "高等数学",
   ]);
   assert.deepEqual(selectDiverseCourseNames([]), []);
-});
-
-test("仓库课程代码总数覆盖无资料及无名称的代码，不受当前页面文件筛选影响", () => {
-  const result = buildCourseCatalog(
-    {
-      curriculum_plans: [],
-      curriculum_records: [],
-      repositories: [
-        {
-          repo_id: "shared",
-          course_codes: ["A", "B", "C", "D", "UNKNOWN", "A"],
-        },
-        { repo_id: "other", course_codes: ["E"] },
-      ],
-      course_descriptors: [
-        { course_code: "A", course_name: "高等数学", repo_id: "shared" },
-        { course_code: "B", course_name: "高等数学", repo_id: "shared" },
-        { course_code: "C", course_name: "大学物理", repo_id: "shared" },
-        { course_code: "D", course_name: "概率论" },
-        { course_code: "E", course_name: "化学", repo_id: "other" },
-      ],
-    },
-    [
-      {
-        repoId: "shared",
-        repoName: "共享仓库",
-        path: "笔记/A.pdf",
-        name: "A.pdf",
-        routeKind: "document",
-        size: 100,
-        courseCodes: ["A"],
-      },
-    ],
-  );
-  const repository = result.details.get("A")!.repositories[0];
-  assert.equal(repository.courseCodeCount, 5);
-  assert.deepEqual(
-    new Set(repository.courseNamePreview),
-    new Set(["高等数学", "大学物理", "概率论"]),
-  );
-  assert.equal(result.details.get("B")!.repositories[0].courseCodeCount, 5);
-  assert.deepEqual(result.details.get("B")!.files, []);
-  assert.equal(result.details.get("E")!.repositories[0].courseCodeCount, 1);
-  assert.deepEqual(result.details.get("E")!.repositories[0].courseNamePreview, [
-    "化学",
-  ]);
 });

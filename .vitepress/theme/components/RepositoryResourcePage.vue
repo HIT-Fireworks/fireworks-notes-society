@@ -16,15 +16,10 @@ async function load() {
     if (current === request) files.value = result;
   } catch (cause) {
     if (import.meta.env.SSR) throw cause;
-    if (current === request) error.value = cause instanceof Error ? cause.message : "资料索引加载失败";
+    if (current === request) error.value = cause instanceof Error ? cause.message : "资料树加载失败";
   }
 }
-function serializeFiles(): string {
-  const bytes = new TextEncoder().encode(JSON.stringify(files.value));
-  let binary = "";
-  for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary);
-}
+function serializeFiles(): string { const bytes = new TextEncoder().encode(JSON.stringify(files.value)); let binary = ""; for (const byte of bytes) binary += String.fromCharCode(byte); return btoa(binary); }
 onServerPrefetch(load);
 if (!import.meta.env.SSR) watch(() => props.path, load, { immediate: true });
 </script>

@@ -46,25 +46,27 @@ fireworks-notes-society/
 1. **我的教学计划**：先选择培养方案或执行教学计划，再按方案版本或入学年级、培养学院、完整专业身份和学期浏览；方案版本不等同于入学年级；
 2. **直接找课程**：按课程名称、课程代码、别名、开课学院、培养学院、推荐学期和资料状态组合检索。
 
-每个课程代码都有稳定的 `/courses/<课程代码>` 页面，展示课程基本信息、覆盖专业与推荐学期、资料数量/分类/容量及 GitHub 课程仓库入口。没有资料的课程也保留在目录中，方便后续贡献。
+每个课程代码都有稳定的 `/courses/<课程代码>` 页面，展示课程基本信息、覆盖专业与推荐学期，以及唯一资料仓库的完整资料树。没有资料的课程也保留在目录中，方便后续贡献。
 
-当前数据包含 4,613 份培养方案及执行教学计划、16,431 个课程代码、226,560 条原始记录，其中 224,601 条有代码课程安排按计划 ID 完整保存在数据包中，323 门课程已有资料。没有代码的原始记录仍完整保留在管理数据中。`/lessons` 与手写资料页直接使用 Registry 文件路由，不再依赖 OpenList 或旧附件仓库。
+当前数据包含 4,613 份培养方案及执行教学计划、16,431 个课程代码、226,560 条原始记录，其中 224,601 条有代码课程安排按计划 ID 完整保存在数据包中。没有代码的原始记录仍完整保留在管理数据中。
 
 课程目录维护：
 
-- 权威数据：`data/repository-manifest.no-collection.v4.json`、同目录的 `.fireworks-json` 分片与 `config/repository-file-routes.v4.json`；根文件和分片必须一起更新，读取时核验 SHA-256 和字节数；
+- 课程与仓库关系：`data/repository-manifest.no-collection.v4.json` 及同目录 `.fireworks-json` 分片；
+- 文件权威来源：各资料仓库当前 commit 的真实 Git Tree；主站不维护文件清单；
+- Git Tree 规范化：`.vitepress/theme/resource-tree.ts`；
+- 构建缓存：`scripts/build-resource-tree.mts`，输出按 `repoId + commit + treeSha` 版本化的完整树；
 - 聚合逻辑：`.vitepress/theme/course-catalog.ts`；
 - 中心组件：`.vitepress/theme/components/CourseExplorer.vue`；
 - 课程详情组件：`.vitepress/theme/components/CourseDetail.vue`；
-- 动态页面模板：`courses/[code].md` 与 `courses/[code].paths.ts`；
 - 数据契约测试：`bun run test:courses`；
 - 完整构建：`bun run docs:build`。
 
-构建前由独立进程生成完整课程数据，Vite 只读取目录摘要和当前课程详情；全部课程共用一次编译的页面模板，但分别生成完整静态 HTML。教学计划按约 1 MiB 的目标大小打包，单个计划不拆分，客户端按计划 ID 提取记录。MPA 发布不重复上传仅供渲染的详情 JSON，并清理上次构建的残留产物。Tailwind 仅扫描页面和主题源码，不扫描管理数据或构建产物。数据更新后运行 `bun run docs:build`，即可生成完整页面、计划数据包及交互脚本。
+构建期先读取资料仓真实 Git Tree，再生成完整 SSG 首屏和版本化 Tree 缓存。浏览器 hydration 复用 SSG 快照；水合后只检查仓库 head，commit 变化时才后台加载新 Tree。`repository-resources.json` 已删除，运行时不依赖 Registry 文件清单。
 
 ## 资料入口与旧页面
 
-`/lessons` 展示全部仓库资料，课程中心负责课程发现和元数据展示。手写资料页通过冻结来源路径确定展示范围，下载始终使用当前仓库路由；软件包和多文件文档保留实际相对路径。旧附件路径只用于来源追溯，不作为生产下载后端。
+`/lessons` 和保留的手写导航页按“页面 → 资料仓库 ID”范围展示仓库 Tree；该映射不包含文件路径、大小或课程级文件归属。下载固定到快照 commit，软件包和多文件文档保留实际相对路径。
 
 ## 🛠️ 技术栈
 

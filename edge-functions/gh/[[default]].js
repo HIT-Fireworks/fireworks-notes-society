@@ -181,25 +181,14 @@ export async function onRequestGet(context) {
       : "HIT-Fireworks";
   const rawUrl = resolveRawUrl(info, owner);
   if (!rawUrl) return jsonResponse({ error: "invalid_github_source" }, 400);
+  const isImmutable = /^[0-9a-f]{40}$/.test(info.url.searchParams.get("ref") || "");
+  const redirectCache = isImmutable ? "public, max-age=31536000, s-maxage=31536000, immutable" : "public, max-age=60, s-maxage=600";
   if (info.url.searchParams.get("direct") === "1") {
-    return new Response(null, {
-      status: 302,
-      headers: {
-        Location: rawUrl,
-        "Cache-Control": "public, max-age=60, s-maxage=300",
-      },
-    });
+    return new Response(null, { status: 302, headers: { Location: rawUrl, "Cache-Control": redirectCache } });
   }
   const node = await chooseNode(configuredNodes(context.env), context.request);
   const location = node ? `${node.replace(/\/$/, "")}/${rawUrl}` : rawUrl;
-  return new Response(null, {
-    status: 302,
-    headers: {
-      Location: location,
-      "Cache-Control": "public, max-age=60, s-maxage=600",
-      Vary: "Accept-Encoding",
-    },
-  });
+  return new Response(null, { status: 302, headers: { Location: location, "Cache-Control": redirectCache, Vary: "Accept-Encoding" } });
 }
 
 export const __test = {
