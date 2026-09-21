@@ -22,6 +22,10 @@ validator = load_module(
     "registry_validation",
     ROOT / "scripts" / "validate-registry.py",
 )
+publisher = load_module(
+    "registry_publisher",
+    ROOT / "scripts" / "publish-registry-cutover.py",
+)
 
 
 class RegistryRepositoryRoutesTest(unittest.TestCase):
@@ -80,6 +84,28 @@ class RegistryRepositoryRoutesTest(unittest.TestCase):
         self.assertTrue(result["valid"])
         self.assertEqual(result["course_descriptor_count"], 16_436)
         self.assertEqual(result["repository_route_count"], 16_454)
+
+    def test_publisher_uses_current_snapshot_and_generation_receipt(self):
+        self.assertEqual(publisher.MANIFEST, ROOT / "data/repository-manifest.no-collection.v4.json")
+        self.assertEqual(publisher.TOPOLOGY, ROOT / "config/repository-topology.v4.json")
+        self.assertEqual(publisher.ROUTES, ROOT / "config/repository-file-routes.v4.json")
+        self.assertEqual(publisher.RECEIPT.name, "registry-generation6-publish-verification.v1.json")
+        self.assertIn("Git Tree", publisher.registry_readme().decode("utf-8"))
+        self.assertNotIn("下载以当前 repository-file-routes", publisher.registry_readme().decode("utf-8"))
+        identity = publisher.snapshot_identity(publisher.snapshot_store())
+        self.assertRegex(identity, r"^[a-f0-9]{64}$")
+
+    def test_publisher_recovers_when_push_completed_before_receipt(self):
+        receipt = {
+            "snapshot_sha256": "a" * 64,
+            "parent": "b" * 40,
+            "head": "c" * 40,
+            "status": "prepared",
+        }
+        recovered = publisher.reconcile_receipt(receipt, "a" * 64, "c" * 40)
+        self.assertEqual(recovered["status"], "completed")
+        self.assertIn("published_at", recovered)
+        self.assertEqual(receipt["status"], "prepared")
 
 
 if __name__ == "__main__":
