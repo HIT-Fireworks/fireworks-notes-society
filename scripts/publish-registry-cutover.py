@@ -27,7 +27,6 @@ ENV = {
     **os.environ,
     "GIT_TERMINAL_PROMPT": "0",
     "GOMAXPROCS": "1",
-    "GIT_NO_LAZY_FETCH": "1",
 }
 
 spec = importlib.util.spec_from_file_location(
@@ -365,7 +364,7 @@ def registry_commit() -> dict[str, Any]:
     save(RECEIPT, compact(receipt))
 
     run(
-        ["git", "-c", "pack.threads=1", "push", REMOTE, f"{commit}:refs/heads/main"],
+        ["git", "-c", "pack.threads=1", "-c", "pack.window=0", "-c", "pack.depth=0", "push", REMOTE, f"{commit}:refs/heads/main"],
         timeout=1800,
     )
     published = current_remote_head()

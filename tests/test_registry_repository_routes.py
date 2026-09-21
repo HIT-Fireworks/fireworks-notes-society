@@ -95,6 +95,7 @@ class RegistryRepositoryRoutesTest(unittest.TestCase):
         identity = publisher.snapshot_identity(publisher.snapshot_store())
         self.assertRegex(identity, r"^[a-f0-9]{64}$")
         self.assertEqual(publisher.PARENT_REF, "refs/heads/generation-parent")
+        self.assertNotIn("GIT_NO_LAZY_FETCH", publisher.ENV)
 
     def test_publisher_recovers_when_push_completed_before_receipt(self):
         receipt = {
