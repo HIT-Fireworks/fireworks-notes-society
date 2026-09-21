@@ -1,7 +1,7 @@
 name: Daily resource rebuild
 on:
   schedule:
-    - cron: '17 19 * * *'
+    - cron: "17 19 * * *"
   workflow_dispatch:
 permissions:
   contents: write
@@ -11,19 +11,36 @@ concurrency:
 jobs:
   check:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v6
         with:
-          persist-credentials: false
+          persist-credentials: true
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: '1.3.12'
+          bun-version: "1.3.12"
       - run: bun install --frozen-lockfile
-      - name: Check resource heads and markers
+      - name: Check deployed resource heads and markers
+        id: dirty
         env:
           RESOURCE_GITHUB_TOKEN: ${{ secrets.RESOURCE_GITHUB_TOKEN || github.token }}
           RESOURCE_STATUS_SECRET: ${{ secrets.RESOURCE_STATUS_SECRET }}
-          EDGEONE_DEPLOY_WEBHOOK_URL: ${{ secrets.EDGEONE_DEPLOY_WEBHOOK_URL }}
           SITE_ORIGIN: https://fireworks.jwyihao.top
         run: bun scripts/check-resource-dirty.mts
+      - name: Refresh committed resource tree cache
+        if: steps.dirty.outputs.dirty == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.RESOURCE_GITHUB_TOKEN || github.token }}
+        run: bun scripts/refresh-resource-tree-cache.mts
+      - name: Trigger production build only when deployed resources are stale
+        if: steps.dirty.outputs.dirty == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet -- data/resource-tree-cache; then
+            git commit --allow-empty -m "chore(deploy): 重试资料树生产部署"
+          else
+            git add data/resource-tree-cache
+            git commit -m "chore(resources): 刷新资料树构建缓存"
+          fi
+          git push origin HEAD:main
