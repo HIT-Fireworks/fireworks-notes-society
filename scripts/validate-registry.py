@@ -12,6 +12,8 @@ from pathlib import Path
 
 MARKER = '$fireworks_shards'
 GROUP_FIELDS = {'resource_groups', 'resource_group_id', 'member_resource_group_ids', 'component_id'}
+FORBIDDEN_ROUTE_FIELDS = {"files", "course_code_routes", "repository_heads", "inventory_complete_repositories", "unresolved_repository_heads"}
+FORBIDDEN_SUMMARY_FIELDS = {"material_file_count", "material_bytes", "material_repository_count", "material_course_code_count"}
 
 
 class Invalid(ValueError):
@@ -166,13 +168,6 @@ def validate(root):
             require(code and code not in owners, f'课程代码重复归属：{code}')
             owners[code] = repo_id
     coded_routes = {}
-    for route in routes['course_code_routes']:
-        reject_groups(route)
-        code, repo = route['course_code'], route['repo_id']
-        require(code not in coded_routes and owners.get(code) == repo, f'课程路由错误：{code}')
-        require(route.get('physical_repository_id') == repos[repo].get('physical_repository_id'), f'课程物理身份不一致：{code}')
-        coded_routes[code] = route
-    require(set(coded_routes) == set(owners), '课程代码缺少路由')
     descriptors, descriptor_records = {}, {}
     for raw in ms.items(manifest['course_descriptors'], 'array'):
         item = ms.expand(raw)
@@ -227,39 +222,39 @@ def validate(root):
     require(isinstance(layout, dict) and layout.get('allow_new_root_categories') is False, '缺少固定分类规则')
     categories = layout.get('categories', [])
     require(categories and len(categories) == len(set(categories)), '分类集合无效')
-    paths, file_repos, material_codes, origins = set(), set(), set(), set()
-    bytes_total = 0
-    for file in routes['files']:
-        reject_groups(file)
-        repo, path = file['repo_id'], safe_path(file['path'])
-        require(repo in repos and repos[repo]['repo_type'] not in {'control','template'}, f'资料目标无效：{repo}')
-        require('/' in path and path.split('/')[0] in categories, f'资料不在预设分类中：{repo}/{path}')
-        key = repo.casefold(), unicodedata.normalize('NFC', path).casefold()
-        require(key not in paths, f'目标路径冲突：{repo}/{path}')
-        paths.add(key)
-        for code in file['course_codes']:
-            require(owners.get(code) == repo, f'文件与课程跨仓：{path}/{code}')
-            material_codes.add(code)
-        require(file.get('route_keys') and file.get('origin'), f'文件缺少路由或来源：{path}')
-        require(file['origin'] not in origins, f'来源重复维护：{file["origin"]}')
-        origins.add(file['origin'])
-        require(type(file['size']) is int and file['size'] >= 0 and re.fullmatch('[a-f0-9]{64}', file['sha256']), f'文件摘要无效：{path}')
-        file_repos.add(repo)
-        bytes_total += file['size']
-    for repo, path in paths:
-        parts = path.split('/')
-        require(not any((repo, '/'.join(parts[:i])) in paths for i in range(1, len(parts))), f'文件目录冲突：{path}')
-    heads = routes['repository_heads']
-    complete = routes['inventory_complete_repositories']
-    require(not routes.get('unresolved_repository_heads') and len(complete) == len(set(complete)) and set(heads) == set(complete), '完整清点仓库 HEAD 不完整')
-    require(file_repos <= set(complete) <= set(repos), '资料文件未完成仓库清点')
-    require(all(re.fullmatch('[a-f0-9]{40}', value) for value in heads.values()), '非法仓库 HEAD')
-    for code, route in coded_routes.items():
-        require(route.get('has_material', False) == (code in material_codes), f'资料状态不一致：{code}')
-    expected = {'repository_count':len(repos),'course_descriptor_count':len(descriptors),'curriculum_record_count':len(record_plans),'curriculum_metadata_plan_count':len(plans),'curriculum_metadata_record_count':len(record_plans),'material_file_count':len(paths),'material_bytes':bytes_total}
+    require(not FORBIDDEN_ROUTE_FIELDS.intersection(routes), f"现行路由仍含废弃文件级字段：{sorted(FORBIDDEN_ROUTE_FIELDS.intersection(routes))}")
+    require(not FORBIDDEN_SUMMARY_FIELDS.intersection(manifest.get("summary", {})), f"现行摘要仍含废弃资料统计：{sorted(FORBIDDEN_SUMMARY_FIELDS.intersection(manifest.get('summary', {})))}")
+    require(isinstance(routes.get("repository_routes"), list) and routes["repository_routes"], "缺少仓库级资料路由")
+    repository_route_keys = set()
+    for route in routes["repository_routes"]:
+        reject_groups(route)
+        require(set(route) == {"kind", "physical_repository_id", "repo_id", "route_key"}, f"仓库路由字段错误：{route.get('route_key')}")
+        kind, key, repo = route["kind"], route["route_key"], route["repo_id"]
+        require(kind in {"curriculum-course", "special-topic", "plan-record", "infrastructure"}, f"仓库路由类型无效：{kind}")
+        require(isinstance(key, str) and key, f"仓库路由键无效：{key}")
+        require(repo in repos and route["physical_repository_id"] == repos[repo].get("physical_repository_id"), f"仓库路由目标无效：{key}")
+        route_key = (kind, key)
+        require(route_key not in repository_route_keys, f"仓库路由重复：{kind}/{key}")
+        repository_route_keys.add(route_key)
+        if kind == "curriculum-course":
+            require(key in owners and owners[key] == repo, f"课程路由错误：{key}")
+            require(repos[repo]["repo_type"] == "course", f"课程路由指向非课程仓：{key}")
+            coded_routes[key] = route
+        elif kind == "special-topic":
+            require(repos[repo]["repo_type"] in {"shared", "competition"}, f"专题路由指向不可路由仓：{key}")
+    require(set(coded_routes) == set(owners), "课程代码缺少仓库级路由")
+    require(set(descriptors) == set(coded_routes), "课程描述与仓库路由集合不同")
+
+    expected = {
+        "repository_count": len(repos),
+        "course_descriptor_count": len(descriptors),
+        "curriculum_record_count": len(record_plans),
+        "curriculum_metadata_plan_count": len(plans),
+        "curriculum_metadata_record_count": len(record_plans),
+    }
     for key, value in expected.items():
-        require(manifest['summary'].get(key) == value, f'汇总不一致：{key}')
-    return {**expected, 'coded_records':coded, 'uncoded_records':len(pending),'verified_shards':sum(len(s.verified) for s in [ms,ts,fs]),'valid':True}
+        require(manifest["summary"].get(key) == value, f"汇总不一致：{key}")
+    return {**expected, "coded_records": coded, "uncoded_records": len(pending), "repository_route_count": len(repository_route_keys), "verified_shards": sum(len(s.verified) for s in [ms, ts, fs]), "valid": True}
 
 
 def main():

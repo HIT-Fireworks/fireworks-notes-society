@@ -149,7 +149,7 @@ def registry_commit():
             file('course-groups.v1.json', compact({'course_groups': store.expand(manifest['course_groups']), 'course_group_memberships': store.expand(manifest['course_group_memberships'])}))
             file('scripts/validate-registry.py', (ROOT / 'scripts/validate-registry.py').read_bytes())
             file('.github/workflows/registry-checks.yml', (AUDIT / 'registry-checks.yml').read_bytes())
-            file('README.md', ('# HIT 课程注册表\n\n课程代码、教学计划记录和资料仓库路由的权威数据。资料直接归仓，不维护仓内资源组。\n\n资料使用预设中文分类：教材、笔记、课件、试卷、作业、实验、软件、教程、模板、项目、其他。维护者不得自行新增根级分类；软件和多文件文档保留必要内部结构。\n\n`python scripts/validate-registry.py --root .` 校验完整分片、课程绑定、计划索引和文件路径。资料仓不再独立运行 CI；此处集中验证元数据，源字节与远端 Git 树在受控迁移时核验。\n\n来源附件仓只保留历史，下载以当前 repository-file-routes.v4.json 为准。\n').encode())
+            file('README.md', ('# HIT 课程注册表\n\n课程代码、教学计划记录和资料仓库路由的权威数据。资料直接归仓，不维护仓内资源组或持久文件清单。\n\n资料使用预设中文分类：教材、笔记、课件、试卷、作业、实验、软件、教程、模板、项目、其他。维护者不得自行新增根级分类；软件和多文件文档保留必要内部结构。\n\n`python scripts/validate-registry.py --root .` 校验完整分片、课程绑定、计划索引与仓库级路由。资料文件目录由各资料仓固定 commit 的 Git Tree 快照提供；Registry 只保存课程、专题与仓库的稳定路由，不保存文件归属。\n\n来源附件仓只保留冻结迁移证据；当前文件列表与下载路径以资料仓 Git Tree 为准。\n').encode())
             line('')
             line('done')
             stream.close()
