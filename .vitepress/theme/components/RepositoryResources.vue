@@ -12,14 +12,14 @@ import InputText from "primevue/inputtext";
 import Tag from "primevue/tag";
 import type { CourseDetailFile } from "../course-catalog";
 import { probeRepositoryCdn, repositoryCdnUrl, repositoryRawUrl, type RepositoryCdn, type RepositoryCdnCacheStatus } from "../repository-resource-links";
+import { refreshResourceRepository, type CachedResourceSnapshot } from "../resource-tree-refresh";
 
 type ResourceFile = CourseDetailFile & { repoName?: string };
 interface ResourceNode { key: string; data: { name: string; path: string; size: number; file?: ResourceFile }; children?: ResourceNode[]; leaf?: boolean }
-interface ResourceSnapshot { commit: string; treeSha: string; files: ResourceFile[] }
 
 const props = defineProps<{ files: ResourceFile[]; repoId?: string; builtCommit?: string; builtTreeSha?: string }>();
 const displayFiles = shallowRef<ResourceFile[]>(props.files);
-const snapshotCache = (globalThis as typeof globalThis & { __fireworksResourceSnapshots?: Map<string, ResourceSnapshot> }).__fireworksResourceSnapshots ??= new Map<string, ResourceSnapshot>();
+const snapshotCache = (globalThis as typeof globalThis & { __fireworksResourceSnapshots?: Map<string, CachedResourceSnapshot> }).__fireworksResourceSnapshots ??= new Map<string, CachedResourceSnapshot>();
 const toast = useToast();
 const query = ref("");
 const selectedFile = ref<ResourceFile>();
@@ -71,32 +71,17 @@ async function refreshRepositorySnapshot(): Promise<void> {
   let stale = false;
   for (const [repoId, built] of versions) {
     const initial = displayFiles.value.filter((file) => file.repoId === repoId);
-    const cached = snapshotCache.get(repoId);
-    if (!cached || cached.commit === built.commit) snapshotCache.set(repoId, { commit: built.commit, treeSha: built.treeSha, files: initial });
     try {
-      const headResponse = await fetch(`/api/resource-head/${encodeURIComponent(repoId)}`);
-      if (!headResponse.ok) throw new Error("head request failed");
-      const head = await headResponse.json() as { commit?: string; treeSha?: string };
-      if (!head.commit || head.commit === built.commit) continue;
-      const cachedNew = snapshotCache.get(repoId);
-      if (cachedNew?.commit === head.commit) {
-        displayFiles.value = [...displayFiles.value.filter((file) => file.repoId !== repoId), ...cachedNew.files];
-        changed = true;
-        continue;
-      }
-      if (!head.treeSha) throw new Error("tree SHA missing");
-      const response = await fetch(`/resource-tree/v1/${encodeURIComponent(repoId)}/${head.commit}/${head.treeSha}.json`);
-      if (!response.ok) throw new Error("tree request failed");
-      const snapshot = await response.json() as { commit: string; treeSha: string; entries: Array<{ type: string; path: string; name?: string; category?: string; size?: number }> };
-      const files = snapshot.entries.filter((entry) => entry.type === "blob").map((entry) => ({ repoId, commit: snapshot.commit, treeSha: snapshot.treeSha, path: entry.path, name: entry.name ?? entry.path.split("/").pop() ?? entry.path, routeKind: entry.category ?? "其他", size: entry.size ?? 0 }));
-      snapshotCache.set(repoId, { commit: snapshot.commit, treeSha: snapshot.treeSha, files });
-      displayFiles.value = [...displayFiles.value.filter((file) => file.repoId !== repoId), ...files];
+      const result = await refreshResourceRepository({ repoId, builtCommit: built.commit, builtTreeSha: built.treeSha, initialFiles: initial, cache: snapshotCache });
+      if (!result.changed) continue;
+      displayFiles.value = [...displayFiles.value.filter((file) => file.repoId !== repoId), ...result.files];
       changed = true;
     } catch { stale = true; }
   }
   if (changed) toast.add({ severity: "success", summary: "资料已更新", detail: "已加载资料仓库的最新目录。", life: 3500 });
   if (stale) toast.add({ severity: "warn", summary: "资料版本检查失败", detail: "部分资料仍显示构建版本目录。", life: 4500 });
 }
+onMounted(() => { void refreshRepositorySnapshot(); });
 
 const downloadOptions = computed(() => {
   const file = selectedFile.value;

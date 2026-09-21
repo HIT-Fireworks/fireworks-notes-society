@@ -11,6 +11,7 @@ import {
   statsFromSnapshot,
   treeCacheRelativePath,
 } from "../.vitepress/theme/resource-tree.ts";
+import { refreshResourceRepository, type ResourceFetch } from "../.vitepress/theme/resource-tree-refresh.ts";
 
 const snapshot = normalizeGitTree("COURSE", "a".repeat(40), "b".repeat(40), [
   {
@@ -78,6 +79,45 @@ test("资料树统计只计算 blob 且缓存地址不可变", () => {
     treeCacheRelativePath(snapshot),
     `v1/COURSE/${"a".repeat(40)}/${"b".repeat(40)}.json`,
   );
+});
+
+test("同 commit hydration 只检查 head，不重复请求资料树", async () => {
+  const calls: string[] = [];
+  const fetcher: ResourceFetch = async (url) => {
+    calls.push(url);
+    return { ok: true, status: 200, async json() { return { commit: snapshot.commit, treeSha: snapshot.treeSha }; } };
+  };
+  const files = filesFromSnapshot(snapshot);
+  const result = await refreshResourceRepository({ repoId: snapshot.repoId, builtCommit: snapshot.commit, builtTreeSha: snapshot.treeSha, initialFiles: files, cache: new Map(), fetcher });
+  assert.equal(result.changed, false);
+  assert.deepEqual(result.files, files);
+  assert.deepEqual(calls, ["/api/resource-head/COURSE"]);
+});
+
+test("commit 变化后加载不可变资料树并在会话内复用", async () => {
+  const nextCommit = "c".repeat(40);
+  const nextTreeSha = "d".repeat(40);
+  const calls: string[] = [];
+  const fetcher: ResourceFetch = async (url) => {
+    calls.push(url);
+    return {
+      ok: true,
+      status: 200,
+      async json() {
+        if (url.startsWith("/api/resource-head/")) return { commit: nextCommit, treeSha: nextTreeSha };
+        return { schemaVersion: 1, repoId: "COURSE", commit: nextCommit, treeSha: nextTreeSha, entries: [{ path: "笔记/新资料.pdf", name: "新资料.pdf", type: "blob", category: "笔记", size: 64 }] };
+      },
+    };
+  };
+  const cache = new Map();
+  const input = { repoId: snapshot.repoId, builtCommit: snapshot.commit, builtTreeSha: snapshot.treeSha, initialFiles: filesFromSnapshot(snapshot), cache, fetcher };
+  const first = await refreshResourceRepository(input);
+  const second = await refreshResourceRepository(input);
+  assert.equal(first.changed, true);
+  assert.deepEqual(first.files.map((file) => file.name), ["新资料.pdf"]);
+  assert.equal(second.changed, true);
+  assert.deepEqual(second.files, first.files);
+  assert.deepEqual(calls, ["/api/resource-head/COURSE", `/resource-tree/v1/COURSE/${nextCommit}/${nextTreeSha}.json`, "/api/resource-head/COURSE"]);
 });
 
 test("站点构建只消费已提交资料树缓存", { timeout: 60000 }, async (t) => {
