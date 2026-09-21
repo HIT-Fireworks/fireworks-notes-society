@@ -26,6 +26,10 @@ publisher = load_module(
     "registry_publisher",
     ROOT / "scripts" / "publish-registry-cutover.py",
 )
+metadata_publisher = load_module(
+    "course_cluster_metadata_publisher",
+    ROOT / "scripts" / "publish-course-cluster-metadata.py",
+)
 
 
 class RegistryRepositoryRoutesTest(unittest.TestCase):
@@ -108,6 +112,21 @@ class RegistryRepositoryRoutesTest(unittest.TestCase):
         self.assertEqual(recovered["status"], "completed")
         self.assertIn("published_at", recovered)
         self.assertEqual(receipt["status"], "prepared")
+
+    def test_metadata_publisher_derives_all_affected_repositories(self):
+        topology, _manifest, _names = metadata_publisher.current_snapshot()
+        _baseline_ref, baseline = metadata_publisher.previous_topology(
+            topology["generation"]
+        )
+        self.assertEqual(
+            metadata_publisher.affected_repository_ids(baseline, topology),
+            [
+                "22MA15024",
+                "COURSES-MIG-C0683EE403A5",
+                "COURSES-RA-43B4396AA956",
+                "COURSES-RA-ABB94F5BF175",
+            ],
+        )
 
 
 if __name__ == "__main__":
