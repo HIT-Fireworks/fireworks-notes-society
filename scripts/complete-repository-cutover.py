@@ -16,6 +16,13 @@ import time
 from repository_description import repository_readme, stable_repository_description
 
 ROOT = Path(__file__).resolve().parents[1]
+CATEGORY_DIRECTORIES = frozenset(json.loads((ROOT / 'config/repository-category-directories.v1.json').read_text(encoding='utf-8'))['directories'])
+CATEGORY_PLACEHOLDER_PATHS = {f'{category}/.gitkeep' for category in CATEGORY_DIRECTORIES}
+EMPTY_BLOB_SHA1 = 'e69de29bb2d1d6434b8b29ae775ad8c2e48c5391'
+
+
+def should_remove_placeholder(path, item, routed_paths):
+    return path.endswith('/.gitkeep') and path not in CATEGORY_PLACEHOLDER_PATHS and path not in routed_paths and item.get('sha') == EMPTY_BLOB_SHA1
 AUDIT = ROOT / 'data/repository-flat-migration'
 OWNER = 'HIT-Fireworks'
 ENV = {**os.environ, 'GOMAXPROCS': '1', 'GOMEMLIMIT': '128MiB', 'GIT_TERMINAL_PROMPT': '0'}
@@ -107,10 +114,27 @@ def verify_files(repo, entries):
             raise RuntimeError(f'{repo}/{row["target_path"]}: 文件内容、大小或模式不符')
 
 
+def course_mapping(repo):
+    return {code: NAMES.get(code) or '教务未提供名称' for code in SPECS[repo].get('course_codes', [])}
+
+
 def metadata(repo):
+    return repository_readme(repo_type=SPECS[repo]['repo_type'], course_mapping=course_mapping(repo))
+
+
+def synchronize_description(repo, current):
     spec = SPECS[repo]
-    mapping = {code: NAMES[code] for code in spec.get('course_codes', [])}
-    return repository_readme(repo_type=spec['repo_type'], course_mapping=mapping)
+    description = stable_repository_description(spec['repo_type'], spec['display_name'], repo_id=repo, course_mapping=course_mapping(repo))
+    if current.get('description') != description:
+        try:
+            current = api(f'repos/{OWNER}/{repo}', 'PATCH', {'description': description})
+        except RuntimeError:
+            current = api(f'repos/{OWNER}/{repo}')
+            if current.get('description') != description:
+                raise
+    if current.get('description') != description:
+        raise RuntimeError(f'{repo}: 仓库说明未同步')
+    checkpoint(repo, 'metadata', {'status': 'completed', 'description': description})
 
 def compact_tree(repo, base_tree, expected, changes):
     source = api(f'repos/{OWNER}/{repo}/git/trees/{base_tree}?recursive=1')
@@ -232,11 +256,12 @@ def add_one(repo):
 
 
 def cleanup_one(repo):
-    identity(repo)
+    current = identity(repo)
     prior = STATE['repositories'].get(repo, {}).get('cleanup')
     if prior:
-        publish(repo, 'cleanup', [], prior['parent'], {}, files=repo in BY_REPO)
-        return
+        result = publish(repo, 'cleanup', [], prior['parent'], {}, files=repo in BY_REPO)
+        synchronize_description(repo, current)
+        return result
     added = STATE['repositories'].get(repo, {}).get('add')
     parent = added['head'] if added else BASE['repositories'][repo]['head']
     if head(repo) != parent:
@@ -255,7 +280,7 @@ def cleanup_one(repo):
     for path, item in entries.items():
         if path in final_paths:
             continue
-        remove = path == '.github/workflows/sync.yml' or (path.endswith('/.gitkeep') and item['sha'] == 'e69de29bb2d1d6434b8b29ae775ad8c2e48c5391')
+        remove = path == '.github/workflows/sync.yml' or should_remove_placeholder(path, item, final_paths)
         if path in removals:
             if item['sha'] != removals[path]:
                 raise RuntimeError(f'{repo}/{path}: 旧路径内容已变化，禁止删除')
@@ -269,9 +294,7 @@ def cleanup_one(repo):
     changes.append({'path': 'README.md', 'mode': '100644', 'type': 'blob', 'content': content})
     expected['README.md'] = {'mode': '100644', 'type': 'blob', 'sha': sha}
     result = publish(repo, 'cleanup', changes, parent, expected, files=repo in BY_REPO)
-    spec = SPECS[repo]
-    description = stable_repository_description(spec['repo_type'], spec['display_name'], repo_id=repo, course_mapping={code: NAMES[code] for code in spec.get('course_codes', [])})
-    api(f'repos/{OWNER}/{repo}', 'PATCH', {'description': description})
+    synchronize_description(repo, current)
     return result
 
 
@@ -325,27 +348,53 @@ def disable_ci():
     batch(data_repos, disable)
 
 
-def verify():
+def verify(final=False):
     rows = []
+    targets = [repo for repo, spec in SPECS.items() if spec['repo_type'] != 'control'] if final else list(BY_REPO)
+
     def check(repo):
         stages = STATE['repositories'].get(repo, {})
-        stage = stages.get('cleanup') or stages.get('add')
-        if not stage or stage['status'] != 'completed' or head(repo) != stage['head']:
-            raise RuntimeError('迁移提交未完成或发生漂移')
+        actual = head(repo)
+        cleanup_stage = stages.get('cleanup')
+        add_stage = stages.get('add')
+        cleaned = bool(cleanup_stage and cleanup_stage.get('head') == actual)
+        stage = cleanup_stage if cleaned else add_stage
+        if not stage or stage.get('head') != actual:
+            raise RuntimeError(f'{repo}: 迁移提交未完成或发生漂移')
+        if final and (not cleaned or cleanup_stage.get('status') != 'completed' or stages.get('metadata', {}).get('status') != 'completed'):
+            raise RuntimeError(f'{repo}: 最终清理或仓库说明尚未完成')
         _, entries = tree(repo, stage['tree'])
         verify_files(repo, entries)
-        if stages.get('cleanup'):
+        if cleaned:
+            routed_paths = {file['target_path'] for file in BY_REPO.get(repo, [])}
             for path in entries:
-                if path.split('/')[0] in {'resource-groups','course-components','legacy-imports','collisions'}:
-                    raise RuntimeError('旧资源组目录残留')
+                if path.split('/')[0] in {'resource-groups', 'course-components', 'legacy-imports', 'collisions'}:
+                    raise RuntimeError(f'{repo}: 旧资源组目录残留')
             for row in PLAN['files']:
-                for owner, path in [(row['source_repo_id'],row['source_path']),(row['target_repo_id'],row['previous_target_path'])]:
-                    if owner == repo and path in entries and path not in {f['target_path'] for f in BY_REPO[repo]}:
-                        raise RuntimeError(f'旧路径残留：{path}')
+                for owner, path in [(row['source_repo_id'], row['source_path']), (row['target_repo_id'], row['previous_target_path'])]:
+                    if owner == repo and path in entries and path not in routed_paths:
+                        raise RuntimeError(f'{repo}: 旧路径残留：{path}')
+            if '.github/workflows/sync.yml' in entries:
+                raise RuntimeError(f'{repo}: 旧资料仓 CI 仍然存在')
+            if any(path.endswith('/.gitkeep') and path not in CATEGORY_PLACEHOLDER_PATHS and path not in routed_paths for path in entries):
+                raise RuntimeError(f'{repo}: 空目录占位文件残留')
+        if final:
+            meta = identity(repo)
+            if meta.get('description') != stages['metadata']['description']:
+                raise RuntimeError(f'{repo}: 仓库说明与核验结果不一致')
+            if api(f'repos/{OWNER}/{repo}/actions/permissions')['enabled']:
+                raise RuntimeError(f'{repo}: 资料或模板仓仍开启重复 Actions')
+            readme_bytes = metadata(repo).encode()
+            readme_sha = hashlib.sha1(f'blob {len(readme_bytes)}\0'.encode() + readme_bytes).hexdigest()
+            if entries.get('README.md', {}).get('sha') != readme_sha:
+                raise RuntimeError(f'{repo}: README 未保存完整课程映射和分类规则')
         with LOCK:
-            rows.append({'repo':repo, 'head':stage['head'], 'tree':stage['tree'], 'files':len(BY_REPO[repo])})
-    batch(list(BY_REPO), check)
-    save('classified-verification.json', {'valid': True, 'identity_sha256': PLAN['identity_sha256'], 'files': sum(r['files'] for r in rows), 'bytes': sum(f['size'] for f in PLAN['files']), 'repositories':rows})
+            rows.append({'repo': repo, 'head': stage['head'], 'tree': stage['tree'], 'files': len(BY_REPO.get(repo, []))})
+
+    batch(targets, check)
+    if sum(row['files'] for row in rows) != len(PLAN['files']):
+        raise RuntimeError('最终资料文件覆盖数量不一致')
+    save('final-content-verification.json' if final else 'classified-verification.json', {'valid': True, 'verified_at': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()), 'identity_sha256': PLAN['identity_sha256'], 'files': sum(row['files'] for row in rows), 'bytes': sum(file['size'] for file in PLAN['files']), 'repositories': rows})
 
 
 if __name__ == '__main__':
@@ -380,6 +429,7 @@ if __name__ == '__main__':
             raise RuntimeError('没有当前计划的线上切换证据，禁止清理旧路径')
         verify()
         batch([r for r,s in SPECS.items() if s['repo_type'] != 'control'], cleanup_one)
+        verify(final=True)
     elif args.phase == 'add':
         batch(list(BY_REPO), add_one)
         verify()
