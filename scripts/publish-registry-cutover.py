@@ -18,6 +18,7 @@ ROOT = Path(__file__).resolve().parents[1]
 MANIFEST = ROOT / "data/repository-manifest.no-collection.v4.json"
 TOPOLOGY = ROOT / "config/repository-topology.v4.json"
 ROUTES = ROOT / "config/repository-file-routes.v4.json"
+PARENT_REF = "refs/heads/generation-parent"
 WORKFLOW = ROOT / "data/repository-flat-migration/registry-checks.yml"
 RECEIPT = ROOT / "data/registry-generation6-publish-verification.v1.json"
 GIT = ROOT / ".workspaces/registry-generation6.git"
@@ -188,14 +189,14 @@ def initialize_git(parent: str) -> None:
     run(["git", "update-ref", "-d", "refs/heads/generation-6"])
 
 
-def remote_generation(parent: str) -> int:
-    raw = run(["git", "show", f"{parent}:repository-topology.v4.json"])
+def remote_generation() -> int:
+    raw = run(["git", "show", f"{PARENT_REF}:repository-topology.v4.json"])
     return int(json.loads(raw)["generation"])
 
 
-def retained_tree(parent: str) -> dict[str, tuple[str, str]]:
+def retained_tree() -> dict[str, tuple[str, str]]:
     retained: dict[str, tuple[str, str]] = {}
-    for row in run(["git", "ls-tree", "-r", "-z", parent]).split(b"\0"):
+    for row in run(["git", "ls-tree", "-r", "-z", PARENT_REF]).split(b"\0"):
         if not row:
             continue
         fields, name = row.split(b"\t", 1)
@@ -220,7 +221,7 @@ def reconcile_receipt(receipt: dict[str, Any], snapshot: str, actual: str) -> di
 
 
 def import_commit(parent: str, store: validation.Store) -> str:
-    retained = retained_tree(parent)
+    retained = retained_tree()
     desired_root_shards = {
         name for name, _source in root_files(store) if name.startswith(".fireworks-json/")
     }
@@ -273,7 +274,7 @@ def import_commit(parent: str, store: validation.Store) -> str:
             b"feat(registry): publish course clusters generation 6\n\n"
             + f"Snapshot: {snapshot_identity(store)}".encode()
         )
-        line("from " + parent)
+        line("from " + PARENT_REF)
 
         for name in sorted(retained):
             stale_root = name.startswith(".fireworks-json/") and name not in desired_root_shards
@@ -346,7 +347,7 @@ def registry_commit() -> dict[str, Any]:
             return reconciled
 
     initialize_git(actual)
-    current_generation = remote_generation(actual)
+    current_generation = remote_generation()
     if current_generation > generation:
         raise RuntimeError(
             f"远端 Registry generation {current_generation} 新于本地 {generation}"

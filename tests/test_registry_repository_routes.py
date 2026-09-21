@@ -94,6 +94,7 @@ class RegistryRepositoryRoutesTest(unittest.TestCase):
         self.assertNotIn("下载以当前 repository-file-routes", publisher.registry_readme().decode("utf-8"))
         identity = publisher.snapshot_identity(publisher.snapshot_store())
         self.assertRegex(identity, r"^[a-f0-9]{64}$")
+        self.assertEqual(publisher.PARENT_REF, "refs/heads/generation-parent")
 
     def test_publisher_recovers_when_push_completed_before_receipt(self):
         receipt = {
