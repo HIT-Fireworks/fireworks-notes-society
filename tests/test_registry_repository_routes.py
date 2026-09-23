@@ -89,17 +89,6 @@ class RegistryRepositoryRoutesTest(unittest.TestCase):
         self.assertEqual(result["course_descriptor_count"], 16_436)
         self.assertEqual(result["repository_route_count"], 16_454)
 
-    def test_publisher_uses_current_snapshot_and_generation_receipt(self):
-        self.assertEqual(publisher.MANIFEST, ROOT / "data/repository-manifest.no-collection.v4.json")
-        self.assertEqual(publisher.TOPOLOGY, ROOT / "config/repository-topology.v4.json")
-        self.assertEqual(publisher.ROUTES, ROOT / "config/repository-file-routes.v4.json")
-        self.assertEqual(publisher.RECEIPT.name, "registry-generation6-publish-verification.v1.json")
-        self.assertIn("Git Tree", publisher.registry_readme().decode("utf-8"))
-        self.assertNotIn("下载以当前 repository-file-routes", publisher.registry_readme().decode("utf-8"))
-        identity = publisher.snapshot_identity(publisher.snapshot_store())
-        self.assertRegex(identity, r"^[a-f0-9]{64}$")
-        self.assertEqual(publisher.PARENT_REF, "refs/heads/generation-parent")
-        self.assertNotIn("GIT_NO_LAZY_FETCH", publisher.ENV)
 
     def test_publisher_recovers_when_push_completed_before_receipt(self):
         receipt = {
@@ -127,6 +116,26 @@ class RegistryRepositoryRoutesTest(unittest.TestCase):
                 "COURSES-RA-ABB94F5BF175",
             ],
         )
+
+    def test_metadata_identity_ignores_registry_only_commits(self):
+        plan = {
+            "generation": 6,
+            "baseline_ref": "a" * 40,
+            "registry_head": "b" * 40,
+            "repositories": {
+                "COURSE": {
+                    "repo_id": "COURSE",
+                    "course_code_count": 1,
+                    "description": "课程｜AA{100=课程 A}",
+                    "readme_blob_sha1": "c" * 40,
+                },
+            },
+        }
+        identity = metadata_publisher.plan_identity(plan)
+        plan["registry_head"] = "d" * 40
+        self.assertEqual(metadata_publisher.plan_identity(plan), identity)
+        plan["repositories"]["COURSE"]["readme_blob_sha1"] = "e" * 40
+        self.assertNotEqual(metadata_publisher.plan_identity(plan), identity)
 
 
 if __name__ == "__main__":

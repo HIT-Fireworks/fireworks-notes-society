@@ -179,7 +179,6 @@ def plan_identity(plan: dict[str, Any]) -> str:
     projection = {
         "generation": plan["generation"],
         "baseline_ref": plan["baseline_ref"],
-        "registry_head": plan["registry_head"],
         "repositories": {
             repo_id: {
                 key: value

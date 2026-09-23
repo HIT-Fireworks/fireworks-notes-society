@@ -1,0 +1,28 @@
+name: Registry integrity
+on:
+  push:
+    branches: [main]
+    paths:
+      - '*.json'
+      - '.fireworks-json/**'
+      - 'curriculum/**'
+      - 'indexes/**'
+      - 'scripts/validate-registry.py'
+      - '.github/workflows/registry-checks.yml'
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: registry-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  integrity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Validate complete Registry snapshot
+        run: python3 scripts/validate-registry.py --root .

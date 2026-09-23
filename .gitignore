@@ -7,4 +7,8 @@
 /.worktrees/
 /.workspaces/
 **/__pycache__/
-/repository-tui/target/
+/repository-tui/
+/.agents/
+/skills-lock.json
+/-*.png
+/data/repository-flat-migration/

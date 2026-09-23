@@ -1,0 +1,67 @@
+{
+  "schema_version": 1,
+  "description": "HIT 课程组声明。课程组表达可重叠的培养方案相关性，只提供检索、导航和仓库策略审阅证据，不改变课程身份、资源分组或资料仓库归属。",
+  "role": "semantic-relatedness-only",
+  "source_curriculum_identity_sha256": "1dd95aa295965535bbb8652c74bccb599a1a5274e74fed3b73bb69ffd72fa1f1",
+  "overlapping_membership": "allowed-and-expected",
+  "course_groups_do_not_imply_repository_merge": true,
+  "expected_course_group_count": 392,
+  "expected_distinct_course_code_count": 2618,
+  "definitions": [
+    {
+      "definition_id": "plan-curriculum-courses",
+      "group_type": "plan-scope",
+      "scope_fields": ["source_plan"],
+      "scope_conditions": {},
+      "display_name_template": "{major_name}{plan_version}培养方案课程",
+      "membership_semantics": "同一来源培养方案中具有稳定课程代码的全部课程记录。",
+      "evidence": "来源培养方案 plan_ID、专业和版本完全一致。",
+      "minimum_distinct_course_codes": 2,
+      "expected_group_count": 211
+    },
+    {
+      "definition_id": "major-curriculum-courses",
+      "group_type": "major-scope",
+      "scope_fields": ["school_name", "major_name"],
+      "scope_conditions": {},
+      "display_name_template": "{major_name}专业课程",
+      "membership_semantics": "同一学院、同一专业名称下各培养方案中具有稳定课程代码的全部课程记录。",
+      "evidence": "培养方案的 school_name 与 major_name 完全一致。",
+      "minimum_distinct_course_codes": 2,
+      "expected_group_count": 134
+    },
+    {
+      "definition_id": "school-curriculum-courses",
+      "group_type": "school-scope",
+      "scope_fields": ["school_name"],
+      "scope_conditions": {},
+      "display_name_template": "{school_name}课程",
+      "membership_semantics": "同一培养方案归属学院或学部中具有稳定课程代码的全部课程记录。",
+      "evidence": "培养方案的 school_name 完全一致。",
+      "minimum_distinct_course_codes": 2,
+      "expected_group_count": 20
+    },
+    {
+      "definition_id": "major-elective-courses",
+      "group_type": "major-scope",
+      "scope_fields": ["school_name", "major_name"],
+      "scope_conditions": {"course_nature": ["任选", "选修", "限选"]},
+      "display_name_template": "{major_name}专业选修课程",
+      "membership_semantics": "同一学院、同一专业名称下课程性质为选修、限选或任选的课程记录。",
+      "evidence": "培养方案的 school_name、major_name 与课程记录的 course_nature 共同限定范围。",
+      "minimum_distinct_course_codes": 2,
+      "expected_group_count": 19
+    },
+    {
+      "definition_id": "school-elective-courses",
+      "group_type": "school-scope",
+      "scope_fields": ["school_name"],
+      "scope_conditions": {"course_nature": ["任选", "选修", "限选"]},
+      "display_name_template": "{school_name}专业选修课程",
+      "membership_semantics": "同一培养方案归属学院或学部中课程性质为选修、限选或任选的课程记录。",
+      "evidence": "培养方案的 school_name 与课程记录的 course_nature 共同限定范围。",
+      "minimum_distinct_course_codes": 2,
+      "expected_group_count": 8
+    }
+  ]
+}
