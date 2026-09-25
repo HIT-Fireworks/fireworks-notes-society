@@ -13,6 +13,7 @@ from pathlib import Path
 MARKER = '$fireworks_shards'
 GROUP_FIELDS = {'resource_groups', 'resource_group_id', 'member_resource_group_ids', 'component_id'}
 FORBIDDEN_ROUTE_FIELDS = {"files", "course_code_routes", "repository_heads", "inventory_complete_repositories", "unresolved_repository_heads"}
+LEGACY_ALGORITHM_FIELDS = {"course_cluster_overrides", "source_course_cluster_overrides_sha256"}
 FORBIDDEN_SUMMARY_FIELDS = {"material_file_count", "material_bytes", "material_repository_count", "material_course_code_count"}
 
 
@@ -224,6 +225,8 @@ def validate(root):
     require(categories and len(categories) == len(set(categories)), '分类集合无效')
     require(not FORBIDDEN_ROUTE_FIELDS.intersection(routes), f"现行路由仍含废弃文件级字段：{sorted(FORBIDDEN_ROUTE_FIELDS.intersection(routes))}")
     require(not FORBIDDEN_SUMMARY_FIELDS.intersection(manifest.get("summary", {})), f"现行摘要仍含废弃资料统计：{sorted(FORBIDDEN_SUMMARY_FIELDS.intersection(manifest.get('summary', {})))}")
+    require(not LEGACY_ALGORITHM_FIELDS.intersection(manifest.get("sources", {})), "现行 Registry 不得持久化旧聚类算法来源")
+    require(not LEGACY_ALGORITHM_FIELDS.intersection(routes), "现行 Registry 不得持久化旧聚类算法字段")
     require(isinstance(routes.get("repository_routes"), list) and routes["repository_routes"], "缺少仓库级资料路由")
     repository_route_keys = set()
     for route in routes["repository_routes"]:
